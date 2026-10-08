@@ -1,0 +1,6 @@
+{
+  "name": "Orfilo",
+  "description": "Everything your AI creates. Organized. Orfilo captures, understands, organizes, and retrieves the artifacts created with AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

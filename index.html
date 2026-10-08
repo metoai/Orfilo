@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Orfilo — Everything your AI creates. Organized.</title>
+    <meta name="description" content="Orfilo captures, understands, organizes, and retrieves the artifacts created with AI." />
+    <meta property="og:title" content="Orfilo — Everything your AI creates. Organized." />
+    <meta property="og:description" content="Orfilo captures, understands, organizes, and retrieves the artifacts created with AI." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+      // Suppress Vite client WebSocket HMR errors in iframe environment
+      (function() {
+        const isViteOrWs = function(str) {
+          if (!str) return false;
+          const s = String(str);
+          return s.includes('WebSocket') || s.includes('@vite/client') || s.includes('failed to connect to websocket') || s.includes('createWebSocketModuleRunnerTransport');
+        };
+
+        window.addEventListener('error', function (e) {
+          if (e && (isViteOrWs(e.message) || isViteOrWs(e.filename) || (e.error && isViteOrWs(e.error.stack)))) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (e) {
+          const reason = e?.reason ? String(e.reason?.message || e.reason?.stack || e.reason) : '';
+          if (isViteOrWs(reason)) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+
+        // Intercept console.error to prevent noise from vite client runner
+        const origConsoleError = console.error;
+        console.error = function() {
+          const args = Array.prototype.slice.call(arguments);
+          if (args.some(isViteOrWs)) return;
+          origConsoleError.apply(console, arguments);
+        };
+      })();
+    </script>
+  </head>
+  <body class="bg-[#FAFAF8] text-[#111111] antialiased">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
