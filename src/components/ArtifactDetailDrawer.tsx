@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Trash2, Edit2, FolderInput, Check, Sparkles, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, HardDrive } from 'lucide-react';
+import { X, Download, Trash2, Edit2, FolderInput, Check, Info, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, HardDrive } from 'lucide-react';
 import { Artifact, Project } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
 import { defaultStorageProvider } from '../lib/storage/GoogleDriveProvider.ts';
@@ -240,11 +240,11 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
             <div className="text-[11px] font-mono text-[#8F8F8F]">Original: {artifact.original_name}</div>
           </div>
 
-          {/* Why is this here? (Core Orfilo value prop) */}
+          {/* Context & Provenance */}
           <div className="bg-white border border-[#E7E7E4] rounded-xl p-4 space-y-2">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-[#111111]">
-              <Sparkles className="w-3.5 h-3.5 text-[#19A974]" />
-              <span>Why is this here?</span>
+              <Info className="w-3.5 h-3.5 text-[#19A974]" />
+              <span>Context & Provenance</span>
             </div>
             <p className="text-xs text-[#6B6B6B] leading-relaxed">
               {artifact.metadata.reasoning || `Orfilo identified this artifact as related to ${artifact.project?.name || 'your workspace'}.`}
@@ -294,7 +294,7 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
             <div className="p-3 flex items-center justify-between">
               <span className="text-[#6B6B6B]">AI Confidence</span>
               <span className="text-[#19A974] font-medium">
-                {Math.round(artifact.ai_confidence * 100)}%
+                {Math.round((artifact.ai_confidence ?? 0.9) * 100)}%
               </span>
             </div>
             <div className="p-3 flex items-center justify-between">

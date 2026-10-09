@@ -1,275 +1,20 @@
 import { createBrowserClient, getSupabaseConfig } from './client.ts';
 import { Project, Artifact, FileEvent, StorageConnection, User, AIOrganizationSuggestion } from '../../types/index.ts';
 
-// Initial seed mock state for when Supabase credentials or tables are not yet initialized
+// Authenticated workspace fallback user
 const SEED_USER: User = {
-  id: 'usr_orfilo_default',
+  id: 'ac916334-06e2-48a8-b8c7-645a27b40c8d',
   email: 'metoaipr@gmail.com',
   name: 'Meto User',
   avatar_url: null,
-  created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
+  created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };
 
-const SEED_PROJECTS: Project[] = [
-  {
-    id: 'proj_meto_01',
-    user_id: 'usr_orfilo_default',
-    name: 'Meto',
-    description: 'Autonomous AI vision inspection platform and product collateral',
-    icon: 'folder',
-    color: '#19A974',
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    artifact_count: 3,
-  },
-  {
-    id: 'proj_orfilo_02',
-    user_id: 'usr_orfilo_default',
-    name: 'Orfilo',
-    description: 'Brand identity, system architecture, and extension capture layer',
-    icon: 'sparkles',
-    color: '#0B1320',
-    created_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    artifact_count: 2,
-  },
-  {
-    id: 'proj_fert_03',
-    user_id: 'usr_orfilo_default',
-    name: 'Fert Creatives',
-    description: 'Design system tokens, typography scales, and UI exploration',
-    icon: 'palette',
-    color: '#63E6B1',
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    artifact_count: 1,
-  },
-];
-
-const SEED_ARTIFACTS: Artifact[] = [
-  {
-    id: 'art_01',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_meto_01',
-    storage_connection_id: null,
-    original_name: 'document_847291_final2.pdf',
-    display_name: 'meto-product-overview.pdf',
-    mime_type: 'application/pdf',
-    extension: 'pdf',
-    size_bytes: 245800,
-    provider_file_id: 'gd_sample_1',
-    provider_path: 'Meto / Documentation',
-    description: 'Product overview and system capabilities overview generated from Gemini',
-    source_type: 'download_capture',
-    source_name: 'Gemini',
-    ai_confidence: 0.96,
-    metadata: {
-      category: 'Documentation',
-      purpose: 'Product overview',
-      topics: ['Meto', 'Inspection', 'AI Vision'],
-      keywords: ['meto', 'overview', 'specs', 'pdf'],
-      reasoning: 'Orfilo identified this as a product overview PDF related to the Meto project.',
-      suggested_location: 'Meto / Documentation',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: 'art_02',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_meto_01',
-    storage_connection_id: null,
-    original_name: 'image_847392_final2.png',
-    display_name: 'meto-hero-v1.png',
-    mime_type: 'image/png',
-    extension: 'png',
-    size_bytes: 1420500,
-    provider_file_id: 'gd_sample_2',
-    provider_path: 'Meto / Marketing / Images',
-    description: 'Landing page visual hero showcasing the inspection dashboard',
-    source_type: 'download_capture',
-    source_name: 'ChatGPT',
-    ai_confidence: 0.94,
-    metadata: {
-      category: 'Marketing',
-      purpose: 'Hero image',
-      topics: ['Meto', 'Marketing', 'Landing Page'],
-      keywords: ['hero', 'landing', 'marketing', 'png'],
-      reasoning: 'Orfilo identified this as a marketing hero image related to the Meto project.',
-      suggested_location: 'Meto / Marketing / Images',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-  },
-  {
-    id: 'art_03',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_meto_01',
-    storage_connection_id: null,
-    original_name: 'deck_draft_v3.pptx',
-    display_name: 'meto-investor-deck.pptx',
-    mime_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    extension: 'pptx',
-    size_bytes: 4890000,
-    provider_file_id: null,
-    provider_path: 'Meto / Presentations',
-    description: 'Seed round investor presentation deck generated with Claude',
-    source_type: 'manual_upload',
-    source_name: 'Claude',
-    ai_confidence: 0.91,
-    metadata: {
-      category: 'Presentations',
-      purpose: 'Pitch deck',
-      topics: ['Meto', 'Fundraising', 'Deck'],
-      keywords: ['pitch', 'deck', 'slides'],
-      reasoning: 'Orfilo recognized this as an investor slide deck for Meto.',
-      suggested_location: 'Meto / Presentations',
-    },
-    created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'art_04',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_orfilo_02',
-    storage_connection_id: null,
-    original_name: 'architecture_diagram_draft.svg',
-    display_name: 'orfilo-system-architecture.svg',
-    mime_type: 'image/svg+xml',
-    extension: 'svg',
-    size_bytes: 84300,
-    provider_file_id: null,
-    provider_path: 'Orfilo / Documentation',
-    description: 'Vector blueprint of Orfilo capture pipeline and storage connector layer',
-    source_type: 'ai_export',
-    source_name: 'Gemini',
-    ai_confidence: 0.98,
-    metadata: {
-      category: 'Documentation',
-      purpose: 'Architecture blueprint',
-      topics: ['Orfilo', 'Infrastructure', 'Supabase'],
-      keywords: ['architecture', 'diagram', 'svg'],
-      reasoning: 'Orfilo identified this as the system architecture blueprint for Orfilo.',
-      suggested_location: 'Orfilo / Documentation',
-    },
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'art_05',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_orfilo_02',
-    storage_connection_id: null,
-    original_name: 'manifest_v3_draft.json',
-    display_name: 'chrome-extension-manifest.json',
-    mime_type: 'application/json',
-    extension: 'json',
-    size_bytes: 3200,
-    provider_file_id: null,
-    provider_path: 'Orfilo / Code',
-    description: 'Manifest V3 configuration for the browser Smart Capture extension',
-    source_type: 'manual_upload',
-    source_name: 'Claude',
-    ai_confidence: 0.95,
-    metadata: {
-      category: 'Code',
-      purpose: 'Extension config',
-      topics: ['Browser Extension', 'Manifest V3'],
-      keywords: ['manifest', 'extension', 'json'],
-      reasoning: 'Orfilo categorized this code artifact under Orfilo / Code.',
-      suggested_location: 'Orfilo / Code',
-    },
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: 'art_06',
-    user_id: 'usr_orfilo_default',
-    project_id: 'proj_fert_03',
-    storage_connection_id: null,
-    original_name: 'typography_scale_export.json',
-    display_name: 'fert-type-scale.json',
-    mime_type: 'application/json',
-    extension: 'json',
-    size_bytes: 4120,
-    provider_file_id: null,
-    provider_path: 'Fert Creatives / Tokens',
-    description: 'Geist Sans and Geist Mono typography scale tokens exported from Figma AI',
-    source_type: 'manual_upload',
-    source_name: 'Custom',
-    ai_confidence: 0.93,
-    metadata: {
-      category: 'Design & Media',
-      purpose: 'Design tokens',
-      topics: ['Fert', 'Typography', 'Tokens'],
-      keywords: ['tokens', 'geist', 'typography'],
-      reasoning: 'Orfilo matched this token file to Fert Creatives.',
-      suggested_location: 'Fert Creatives / Tokens',
-    },
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
-
-const SEED_EVENTS: FileEvent[] = [
-  {
-    id: 'ev_01',
-    user_id: 'usr_orfilo_default',
-    artifact_id: 'art_01',
-    event_type: 'organized',
-    actor_type: 'ai_system',
-    actor_id: 'gemini-2.5-flash',
-    metadata: {
-      artifact_name: 'meto-product-overview.pdf',
-      project_name: 'Meto',
-      to_path: 'Meto / Documentation',
-      summary: 'AI organized meto-product-overview.pdf → Meto / Documentation',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: 'ev_02',
-    user_id: 'usr_orfilo_default',
-    artifact_id: 'art_01',
-    event_type: 'saved',
-    actor_type: 'human',
-    actor_id: 'metoaipr@gmail.com',
-    metadata: {
-      artifact_name: 'meto-product-overview.pdf',
-      summary: 'Captured from Gemini download and saved to Orfilo',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3 - 1000 * 20).toISOString(),
-  },
-  {
-    id: 'ev_03',
-    user_id: 'usr_orfilo_default',
-    artifact_id: 'art_02',
-    event_type: 'renamed',
-    actor_type: 'ai_system',
-    actor_id: 'gemini-2.5-flash',
-    metadata: {
-      from_name: 'image_847392_final2.png',
-      to_name: 'meto-hero-v1.png',
-      summary: 'Renamed image_847392_final2.png → meto-hero-v1.png',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-  },
-  {
-    id: 'ev_04',
-    user_id: 'usr_orfilo_default',
-    artifact_id: 'art_04',
-    event_type: 'saved',
-    actor_type: 'human',
-    actor_id: 'metoaipr@gmail.com',
-    metadata: {
-      artifact_name: 'orfilo-system-architecture.svg',
-      project_name: 'Orfilo',
-      summary: 'Saved architecture blueprint to Orfilo',
-    },
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
+// Zero hardcoded mock records — all state comes from Supabase database
+const SEED_PROJECTS: Project[] = [];
+const SEED_ARTIFACTS: Artifact[] = [];
+const SEED_EVENTS: FileEvent[] = [];
 
 export interface SchemaStatus {
   isConfigured: boolean;
@@ -354,6 +99,8 @@ class OrfiloDatabaseService {
   // 1. Projects
   async getProjects(userId?: string): Promise<Project[]> {
     const client = createBrowserClient();
+    const projectMap = new Map<string, Project>();
+
     if (client) {
       try {
         const { data, error } = await client
@@ -361,40 +108,47 @@ class OrfiloDatabaseService {
           .select('*, artifacts(count)')
           .order('created_at', { ascending: false });
 
-        if (error) {
-          if (this.isTableMissingError(error)) {
-            this.schemaStatus = {
-              isConfigured: true,
-              tablesCreated: false,
-              missingTable: 'projects',
-              message: "Tables not yet found in Supabase schema cache. Run migration SQL to activate.",
-            };
-            console.warn('[Orfilo DB] Supabase table public.projects not found in schema cache. Using sandbox state.');
-            return this.getMemoryProjects(userId);
-          }
-          console.warn('[Orfilo DB] Error fetching projects from Supabase:', error.message);
-          return this.getMemoryProjects(userId);
+        if (!error && data) {
+          this.schemaStatus.tablesCreated = true;
+          data.forEach((p: any) => {
+            projectMap.set(p.id, {
+              id: p.id,
+              user_id: p.user_id,
+              name: p.name,
+              description: p.description,
+              icon: p.icon || 'folder',
+              color: p.color || '#19A974',
+              created_at: p.created_at,
+              updated_at: p.updated_at,
+              artifact_count: p.artifacts ? (Array.isArray(p.artifacts) ? p.artifacts.length : p.artifacts[0]?.count ?? 0) : 0,
+            });
+          });
         }
-
-        this.schemaStatus.tablesCreated = true;
-        return (data || []).map((p: any) => ({
-          id: p.id,
-          user_id: p.user_id,
-          name: p.name,
-          description: p.description,
-          icon: p.icon || 'folder',
-          color: p.color || '#19A974',
-          created_at: p.created_at,
-          updated_at: p.updated_at,
-          artifact_count: p.artifacts ? p.artifacts[0]?.count || 0 : 0,
-        }));
       } catch (err: any) {
-        console.warn('[Orfilo DB] Network/Supabase query exception for projects:', err);
-        return this.getMemoryProjects(userId);
+        console.warn('[Orfilo DB] Exception querying projects from Supabase:', err);
       }
     }
 
-    return this.getMemoryProjects(userId);
+    // Merge with server-side projects
+    try {
+      const res = await fetch('/api/v1/projects');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          json.data.forEach((p: any) => {
+            if (!projectMap.has(p.id)) {
+              projectMap.set(p.id, p);
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    this.memoryProjects.forEach((p) => {
+      if (!projectMap.has(p.id)) projectMap.set(p.id, p);
+    });
+
+    return Array.from(projectMap.values());
   }
 
   private getMemoryProjects(userId?: string): Project[] {
@@ -416,7 +170,7 @@ class OrfiloDatabaseService {
           .select('*')
           .eq('id', projectId)
           .single();
-        if (!error && data) return data;
+        if (!error && data) return data as unknown as Project;
       } catch {
         // Fallback
       }
@@ -459,7 +213,7 @@ class OrfiloDatabaseService {
           throw new Error(`Supabase error creating project: ${error.message}`);
         }
       } else if (data) {
-        return data;
+        return data as unknown as Project;
       }
     }
 
@@ -494,7 +248,7 @@ class OrfiloDatabaseService {
         .select()
         .single();
 
-      if (!error && data) return data;
+      if (!error && data) return data as unknown as Project;
     }
 
     const idx = this.memoryProjects.findIndex((p) => p.id === id);
@@ -524,6 +278,8 @@ class OrfiloDatabaseService {
   // 2. Artifacts
   async getArtifacts(params?: { projectId?: string; query?: string; type?: string }): Promise<Artifact[]> {
     const client = createBrowserClient();
+    let supabaseList: Artifact[] = [];
+
     if (client) {
       try {
         let query = client.from('artifacts').select('*, project:projects(*)').order('created_at', { ascending: false });
@@ -538,25 +294,63 @@ class OrfiloDatabaseService {
         }
 
         const { data, error } = await query;
-        if (error) {
-          if (this.isTableMissingError(error)) {
-            this.schemaStatus.tablesCreated = false;
-            console.warn('[Orfilo DB] Supabase table public.artifacts not found in schema cache. Using sandbox state.');
-            return this.getMemoryArtifacts(params);
-          }
-          console.warn('[Orfilo DB] Error fetching artifacts from Supabase:', error.message);
-          return this.getMemoryArtifacts(params);
+        if (!error && data) {
+          supabaseList = data as unknown as Artifact[];
+          this.schemaStatus.tablesCreated = true;
         }
-
-        this.schemaStatus.tablesCreated = true;
-        return data || [];
       } catch (err: any) {
-        console.warn('[Orfilo DB] Exception querying artifacts:', err);
-        return this.getMemoryArtifacts(params);
+        console.warn('[Orfilo DB] Exception querying artifacts from Supabase:', err);
       }
     }
 
-    return this.getMemoryArtifacts(params);
+    // Merge with live server-ingested artifacts for real-time extension capture sync
+    let serverList: Artifact[] = [];
+    try {
+      const res = await fetch('/api/v1/artifacts');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          serverList = json.data;
+        }
+      }
+    } catch (_) {}
+
+    const map = new Map<string, Artifact>();
+    supabaseList.forEach((a) => map.set(a.id, a));
+    serverList.forEach((a) => {
+      if (!map.has(a.id)) map.set(a.id, a);
+    });
+    this.memoryArtifacts.forEach((a) => {
+      if (!map.has(a.id)) map.set(a.id, a);
+    });
+
+    let merged = Array.from(map.values());
+    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+    if (params?.projectId) {
+      merged = merged.filter((a) => a.project_id === params.projectId);
+    }
+    if (params?.type && params.type !== 'all') {
+      const t = params.type.toLowerCase();
+      merged = merged.filter((a) => {
+        if (t === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(a.extension);
+        if (t === 'documents') return ['pdf', 'docx', 'txt', 'md'].includes(a.extension);
+        if (t === 'presentations') return ['pptx', 'key'].includes(a.extension);
+        if (t === 'code') return ['ts', 'tsx', 'js', 'json', 'py', 'sql'].includes(a.extension);
+        return true;
+      });
+    }
+    if (params?.query) {
+      const q = params.query.toLowerCase();
+      merged = merged.filter(
+        (a) =>
+          a.display_name.toLowerCase().includes(q) ||
+          a.original_name.toLowerCase().includes(q) ||
+          (a.description || '').toLowerCase().includes(q)
+      );
+    }
+
+    return merged;
   }
 
   private getMemoryArtifacts(params?: { projectId?: string; query?: string; type?: string }): Artifact[] {
@@ -579,7 +373,7 @@ class OrfiloDatabaseService {
         (a) =>
           a.display_name.toLowerCase().includes(q) ||
           a.original_name.toLowerCase().includes(q) ||
-          a.description.toLowerCase().includes(q) ||
+          a.description?.toLowerCase().includes(q) ||
           (a.metadata?.keywords && a.metadata.keywords.some((k) => k.toLowerCase().includes(q))) ||
           (a.metadata?.category && a.metadata.category.toLowerCase().includes(q))
       );
@@ -600,7 +394,7 @@ class OrfiloDatabaseService {
           .select('*, project:projects(*)')
           .eq('id', id)
           .single();
-        if (!error && data) return data;
+        if (!error && data) return data as unknown as Artifact;
       } catch {
         // Fallback
       }
@@ -662,7 +456,7 @@ class OrfiloDatabaseService {
           source_type: params.source_type || 'manual_upload',
           source_name: params.source_name || 'Gemini',
           ai_confidence: params.ai_confidence,
-          metadata: params.metadata || {},
+          metadata: (params.metadata || {}) as any,
         })
         .select()
         .single();
@@ -678,12 +472,12 @@ class OrfiloDatabaseService {
             summary: `Saved ${data.display_name}`,
           },
         });
-        return data;
+        return data as unknown as Artifact;
       }
     }
 
     const newArt: Artifact = {
-      id: 'art_' + Math.random().toString(36).substring(2, 9),
+      id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : 'art_' + Math.random().toString(36).substring(2, 9),
       user_id: user.id,
       project_id: params.project_id || null,
       storage_connection_id: params.storage_connection_id || null,
@@ -743,7 +537,7 @@ class OrfiloDatabaseService {
             summary: `Renamed ${current?.display_name || 'file'} → ${newDisplayName}`,
           },
         });
-        return data;
+        return data as unknown as Artifact;
       }
     }
 
@@ -794,7 +588,7 @@ class OrfiloDatabaseService {
             summary: `Moved ${current?.display_name} → ${newLocationPath}`,
           },
         });
-        return data;
+        return data as unknown as Artifact;
       }
     }
 
@@ -860,6 +654,8 @@ class OrfiloDatabaseService {
   // 3. Activity Events
   async getEvents(limit: number = 25): Promise<FileEvent[]> {
     const client = createBrowserClient();
+    let supabaseEvents: FileEvent[] = [];
+
     if (client) {
       try {
         const { data, error } = await client
@@ -868,23 +664,38 @@ class OrfiloDatabaseService {
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (error) {
-          if (this.isTableMissingError(error)) {
-            console.warn('[Orfilo DB] Supabase table public.file_events not found in schema cache. Using sandbox events.');
-            return this.memoryEvents.slice(0, limit);
-          }
-          console.warn('[Orfilo DB] Error fetching events from Supabase:', error.message);
-          return this.memoryEvents.slice(0, limit);
+        if (!error && data) {
+          supabaseEvents = data as unknown as FileEvent[];
         }
-
-        return data || [];
       } catch (err: any) {
-        console.warn('[Orfilo DB] Exception querying file_events:', err);
-        return this.memoryEvents.slice(0, limit);
+        console.warn('[Orfilo DB] Exception querying file_events from Supabase:', err);
       }
     }
 
-    return this.memoryEvents.slice(0, limit);
+    // Merge with server-side live events
+    let serverEvents: FileEvent[] = [];
+    try {
+      const res = await fetch('/api/v1/events');
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json.data)) {
+          serverEvents = json.data;
+        }
+      }
+    } catch (_) {}
+
+    const map = new Map<string, FileEvent>();
+    supabaseEvents.forEach((e) => map.set(e.id, e));
+    serverEvents.forEach((e) => {
+      if (!map.has(e.id)) map.set(e.id, e);
+    });
+    this.memoryEvents.forEach((e) => {
+      if (!map.has(e.id)) map.set(e.id, e);
+    });
+
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return merged.slice(0, limit);
   }
 
   async recordEvent(params: {
@@ -908,12 +719,12 @@ class OrfiloDatabaseService {
             event_type: params.event_type,
             actor_type: params.actor_type,
             actor_id: params.actor_id || user.email,
-            metadata: params.metadata || {},
+            metadata: (params.metadata || {}) as any,
           })
           .select()
           .single();
 
-        if (!error && data) return data;
+        if (!error && data) return data as unknown as FileEvent;
       } catch {
         // Fallback to memory
       }
@@ -939,7 +750,7 @@ class OrfiloDatabaseService {
     if (client && this.schemaStatus.tablesCreated) {
       try {
         const { data, error } = await client.from('storage_connections').select('*');
-        if (!error && data) return data;
+        if (!error && data) return (data as unknown as StorageConnection[]) || [];
       } catch {
         // Fallback
       }
@@ -972,7 +783,7 @@ class OrfiloDatabaseService {
           })
           .select()
           .single();
-        if (!error && data) return data;
+        if (!error && data) return data as unknown as StorageConnection;
       } catch {
         // Fallback to memory
       }

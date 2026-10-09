@@ -335,7 +335,7 @@ export const StorageSettingsView: React.FC<StorageSettingsViewProps> = ({ curren
             <div className="text-[#8F8F8F] text-[11px] mb-1">Sync Pipeline</div>
             <div className="flex items-center justify-between">
               <span className="font-medium text-[#111111]">
-                {isConnected ? 'Real-time Live Sync' : 'Development Mock'}
+                {isConnected ? 'Real-time Live Sync' : 'Awaiting Connection'}
               </span>
               {isConnected && (
                 <button

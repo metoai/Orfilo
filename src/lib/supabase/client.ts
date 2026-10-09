@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../../types/database.types.ts';
 
 // Retrieve credentials safely from Vite import.meta.env or process.env
 export const getSupabaseConfig = () => {
@@ -22,13 +23,13 @@ export const getSupabaseConfig = () => {
   return { url, anonKey, isConfigured };
 };
 
-let supabaseBrowserClient: SupabaseClient | null = null;
+let supabaseBrowserClient: SupabaseClient<Database> | null = null;
 
 /**
  * Creates or returns the browser Supabase client using public anon key.
  * Only authenticated client-safe operations and RLS-protected queries should use this.
  */
-export function createBrowserClient(): SupabaseClient | null {
+export function createBrowserClient(): SupabaseClient<Database> | null {
   if (supabaseBrowserClient) {
     return supabaseBrowserClient;
   }
@@ -39,7 +40,7 @@ export function createBrowserClient(): SupabaseClient | null {
     return null;
   }
 
-  supabaseBrowserClient = createClient(url, anonKey, {
+  supabaseBrowserClient = createClient<Database>(url, anonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,

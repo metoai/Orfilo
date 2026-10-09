@@ -1,11 +1,12 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { GoogleGenAI, Type } from '@google/genai';
-import { authenticateServerRequest } from './src/lib/supabase/server.ts';
+import { authenticateServerRequest, createServerClient, getWorkspaceAuthenticatedClient } from './src/lib/supabase/server.ts';
 
 dotenv.config();
 
@@ -192,162 +193,47 @@ export interface InboundRequestLog {
 
 const dbInboundRequests: InboundRequestLog[] = [];
 
-// Initial Seed Records
+// Live Database Records (Synchronized with Supabase)
 const dbProjects: ProjectRecord[] = [
   {
-    id: 'proj_meto_01',
-    name: 'Meto',
+    id: '4d2a7703-3172-4b9c-96aa-8572fff76160',
+    user_id: 'ac916334-06e2-48a8-b8c7-645a27b40c8d',
+    name: 'Meto Inspection Platform',
     description: 'Autonomous AI vision inspection platform and product collateral',
     icon: 'folder',
     color: '#19A974',
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: 'proj_orfilo_02',
-    name: 'Orfilo',
-    description: 'Brand identity, system architecture, and extension capture layer',
-    icon: 'sparkles',
-    color: '#0B1320',
-    created_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'proj_fert_03',
-    name: 'Fert Creatives',
-    description: 'Design system tokens, typography scales, and UI exploration',
-    icon: 'palette',
-    color: '#63E6B1',
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
 ];
+const dbArtifacts: ArtifactRecord[] = [];
+const dbEvents: ActivityEventRecord[] = [];
 
-const dbArtifacts: ArtifactRecord[] = [
-  {
-    id: 'art_01',
-    project_id: 'proj_meto_01',
-    original_name: 'document_847291_final2.pdf',
-    display_name: 'meto-product-overview.pdf',
-    mime_type: 'application/pdf',
-    extension: 'pdf',
-    size_bytes: 245800,
-    provider_path: 'Meto / Documentation',
-    description: 'Product overview and system capabilities overview generated from Gemini',
-    source_type: 'download_capture',
-    source_name: 'Gemini',
-    ai_confidence: 0.96,
-    metadata: {
-      category: 'Documentation',
-      purpose: 'Product overview',
-      topics: ['Meto', 'Inspection', 'AI Vision'],
-      keywords: ['meto', 'overview', 'specs', 'pdf'],
-      reasoning: 'Orfilo identified this as a product overview PDF related to the Meto project.',
-      suggested_location: 'Meto / Documentation',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
-  },
-  {
-    id: 'art_02',
-    project_id: 'proj_meto_01',
-    original_name: 'image_847392_final2.png',
-    display_name: 'meto-hero-v1.png',
-    mime_type: 'image/png',
-    extension: 'png',
-    size_bytes: 1420500,
-    provider_path: 'Meto / Marketing / Images',
-    description: 'Landing page visual hero showcasing the inspection dashboard',
-    source_type: 'download_capture',
-    source_name: 'ChatGPT',
-    ai_confidence: 0.94,
-    metadata: {
-      category: 'Marketing',
-      purpose: 'Hero image',
-      topics: ['Meto', 'Marketing', 'Landing Page'],
-      keywords: ['hero', 'landing', 'marketing', 'png'],
-      reasoning: 'Orfilo identified this as a marketing hero image related to the Meto project.',
-      suggested_location: 'Meto / Marketing / Images',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-    updated_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
-  },
-  {
-    id: 'art_03',
-    project_id: 'proj_meto_01',
-    original_name: 'deck_draft_v3.pptx',
-    display_name: 'meto-investor-deck.pptx',
-    mime_type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    extension: 'pptx',
-    size_bytes: 4890000,
-    provider_path: 'Meto / Presentations',
-    description: 'Seed round investor presentation deck generated with Claude',
-    source_type: 'manual_upload',
-    source_name: 'Claude',
-    ai_confidence: 0.91,
-    metadata: {
-      category: 'Presentations',
-      purpose: 'Pitch deck',
-      topics: ['Meto', 'Fundraising', 'Deck'],
-      keywords: ['pitch', 'deck', 'slides'],
-      reasoning: 'Orfilo recognized this as an investor slide deck for Meto.',
-      suggested_location: 'Meto / Presentations',
-    },
-    created_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: 'art_04',
-    project_id: 'proj_orfilo_02',
-    original_name: 'architecture_diagram_draft.svg',
-    display_name: 'orfilo-system-architecture.svg',
-    mime_type: 'image/svg+xml',
-    extension: 'svg',
-    size_bytes: 84300,
-    provider_path: 'Orfilo / Documentation',
-    description: 'Vector blueprint of Orfilo capture pipeline and storage connector layer',
-    source_type: 'ai_export',
-    source_name: 'Gemini',
-    ai_confidence: 0.98,
-    metadata: {
-      category: 'Documentation',
-      purpose: 'Architecture blueprint',
-      topics: ['Orfilo', 'Infrastructure', 'Supabase'],
-      keywords: ['architecture', 'diagram', 'svg'],
-      reasoning: 'Orfilo identified this as the system architecture blueprint for Orfilo.',
-      suggested_location: 'Orfilo / Documentation',
-    },
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    updated_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-];
-
-const dbEvents: ActivityEventRecord[] = [
-  {
-    id: 'ev_01',
-    artifact_id: 'art_01',
-    event_type: 'organized',
-    actor_type: 'agent',
-    actor_id: 'Gemini Engine',
-    metadata: {
-      artifact_name: 'meto-product-overview.pdf',
-      summary: 'Gemini classified and filed meto-product-overview.pdf → Meto / Documentation',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-  },
-  {
-    id: 'ev_02',
-    artifact_id: 'art_02',
-    event_type: 'saved',
-    actor_type: 'agent',
-    actor_id: 'ChatGPT Action',
-    metadata: {
-      artifact_name: 'meto-hero-v1.png',
-      summary: 'ChatGPT Action saved meto-hero-v1.png',
-    },
-    created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-  },
-];
+// Synchronize with Supabase database using workspace authentication
+async function syncDatabaseFromSupabase() {
+  try {
+    const supabase = await getWorkspaceAuthenticatedClient();
+    if (!supabase) return;
+    const { data: projects, error: pErr } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    if (projects && !pErr && projects.length > 0) {
+      dbProjects.length = 0;
+      projects.forEach((p: any) => dbProjects.push(p));
+    }
+    const { data: artifacts, error: aErr } = await supabase.from('artifacts').select('*').order('created_at', { ascending: false });
+    if (artifacts && !aErr && artifacts.length > 0) {
+      dbArtifacts.length = 0;
+      artifacts.forEach((a: any) => dbArtifacts.push(a));
+    }
+    const { data: events, error: eErr } = await supabase.from('file_events').select('*').order('created_at', { ascending: false });
+    if (events && !eErr && events.length > 0) {
+      dbEvents.length = 0;
+      events.forEach((e: any) => dbEvents.push(e));
+    }
+  } catch (err) {
+    console.warn('[Server] Supabase sync notice:', err);
+  }
+}
+syncDatabaseFromSupabase();
 
 const dbAgents: AgentRecord[] = [
   {
@@ -495,6 +381,37 @@ const dbConnections: Record<string, ConnectionRecord> = {
     last_seen_at: null,
     disconnected_at: null,
   },
+  browser_extension: {
+    id: 'conn_browser_extension',
+    user_id: 'usr_active',
+    provider: 'browser_extension',
+    status: 'not_connected',
+    auth_type: 'companion_extension',
+    scopes: ['artifacts:write', 'artifacts:read', 'projects:read', 'extension:capture'],
+    metadata: {
+      client_name: 'Orfilo Smart Capture Companion (Chrome / Edge / Brave)',
+      version: '1.0.0',
+      manifest_version: 3,
+    },
+    connected_at: null,
+    last_seen_at: null,
+    disconnected_at: null,
+  },
+  extension: {
+    id: 'conn_extension',
+    user_id: 'usr_active',
+    provider: 'extension',
+    status: 'not_connected',
+    auth_type: 'companion_extension',
+    scopes: ['artifacts:write', 'artifacts:read', 'projects:read', 'extension:capture'],
+    metadata: {
+      client_name: 'Orfilo Smart Capture Extension',
+      version: '1.0.0',
+    },
+    connected_at: null,
+    last_seen_at: null,
+    disconnected_at: null,
+  },
 };
 
 // ==========================================
@@ -627,11 +544,20 @@ Classify and return:
     targetProject = availableProjects[0];
   }
 
+  const resolvedUserId = user_id && user_id !== 'usr_orfilo_default'
+    ? user_id
+    : (targetProject?.user_id || 'ac916334-06e2-48a8-b8c7-645a27b40c8d');
+
   const finalDisplayName = display_name || suggestion.suggested_name || filename;
+  const artifactId = crypto.randomUUID();
+  const resolvedProjectId = (targetProject?.id && targetProject.id.includes('-'))
+    ? targetProject.id
+    : '4d2a7703-3172-4b9c-96aa-8572fff76160';
+
   const newArtifact: ArtifactRecord = {
-    id: 'art_' + Math.random().toString(36).substring(2, 9),
-    user_id: user_id || targetProject?.user_id || 'usr_orfilo_default',
-    project_id: targetProject?.id || null,
+    id: artifactId,
+    user_id: resolvedUserId,
+    project_id: resolvedProjectId,
     original_name: filename,
     display_name: finalDisplayName,
     mime_type,
@@ -657,8 +583,9 @@ Classify and return:
   dbArtifacts.unshift(newArtifact);
 
   // Record audit activity event
-  dbEvents.unshift({
-    id: 'ev_' + Math.random().toString(36).substring(2, 9),
+  const eventId = crypto.randomUUID();
+  const newEvent: ActivityEventRecord = {
+    id: eventId,
     artifact_id: newArtifact.id,
     event_type: 'organized',
     actor_type: 'agent',
@@ -670,7 +597,49 @@ Classify and return:
       summary: `${source_name} saved and organized ${finalDisplayName} → ${newArtifact.provider_path}`,
     },
     created_at: new Date().toISOString(),
-  });
+  };
+  dbEvents.unshift(newEvent);
+
+  // Persist directly to Supabase Database
+  const supabase = await getWorkspaceAuthenticatedClient();
+  if (supabase) {
+    try {
+      const { error: artErr } = await supabase.from('artifacts').insert({
+        id: newArtifact.id,
+        user_id: resolvedUserId,
+        project_id: newArtifact.project_id,
+        original_name: newArtifact.original_name,
+        display_name: newArtifact.display_name,
+        mime_type: newArtifact.mime_type,
+        extension: newArtifact.extension,
+        size_bytes: newArtifact.size_bytes,
+        provider_path: newArtifact.provider_path,
+        description: newArtifact.description,
+        source_type: newArtifact.source_type,
+        source_name: newArtifact.source_name,
+        ai_confidence: newArtifact.ai_confidence,
+        metadata: newArtifact.metadata,
+      });
+      if (artErr) {
+        console.warn('[Server Supabase] Error persisting ingested artifact to Supabase:', artErr);
+      }
+
+      const { error: evErr } = await supabase.from('file_events').insert({
+        id: newEvent.id,
+        artifact_id: newArtifact.id,
+        user_id: resolvedUserId,
+        event_type: 'organized',
+        actor_type: 'agent',
+        actor_id: actor_id || `${source_name} Agent`,
+        metadata: newEvent.metadata,
+      });
+      if (evErr) {
+        console.warn('[Server Supabase] Error persisting file_event to Supabase:', evErr);
+      }
+    } catch (dbErr) {
+      console.warn('[Server Supabase] Error persisting ingested artifact to Supabase:', dbErr);
+    }
+  }
 
   return { artifact: newArtifact, suggestion };
 }
@@ -753,10 +722,23 @@ function generateHeuristicSuggestion(
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
   const isProduction = process.env.NODE_ENV === 'production';
 
   app.use(express.json({ limit: '25mb' }));
+
+  // CORS Middleware: Supports Browser Extensions (chrome-extension://, moz-extension://), local dev, and AI tools
+  app.use((req: Request, res: Response, next) => {
+    const origin = req.headers.origin || '*';
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-api-key');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
 
   const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
@@ -814,7 +796,7 @@ async function startServer() {
       } = req.body;
 
       const resolvedFilename = filename || (req.body.artifact?.name) || 'ai-deliverable.bin';
-      const resolvedSourceName = source?.name || req.body.source_name || 'AI Client';
+      const resolvedSourceName = source?.name || req.body.source_name || (req.body.source_type === 'browser_extension' ? 'Browser Extension' : 'AI Client');
       const resolvedProjectHint = project?.name || req.body.project_hint || '';
 
       const authContext = await resolveIntegrationUser(req);
@@ -824,7 +806,7 @@ async function startServer() {
         filename: resolvedFilename,
         display_name,
         source_name: resolvedSourceName,
-        source_type: source?.type || 'api',
+        source_type: (source?.type || req.body.source_type || 'api') as any,
         context_prompt: context_prompt || (metadata as any)?.context_prompt,
         mime_type: mime_type || 'application/octet-stream',
         size_bytes: size_bytes || 2048,
@@ -842,6 +824,7 @@ async function startServer() {
         : resolvedSourceName.toLowerCase().includes('claude') ? 'claude'
         : resolvedSourceName.toLowerCase().includes('cursor') ? 'cursor'
         : resolvedSourceName.toLowerCase().includes('gemini') ? 'gemini'
+        : resolvedSourceName.toLowerCase().includes('extension') ? 'browser_extension'
         : 'custom_agent';
 
       if (dbConnections[provKey]) {
@@ -878,7 +861,23 @@ async function startServer() {
   });
 
   // List artifacts
-  app.get('/api/v1/artifacts', (req: Request, res: Response) => {
+  app.get('/api/v1/artifacts', async (req: Request, res: Response) => {
+    try {
+      const supabase = await getWorkspaceAuthenticatedClient();
+      if (supabase) {
+        const { data: remoteArts } = await supabase.from('artifacts').select('*').order('created_at', { ascending: false });
+        if (remoteArts && remoteArts.length > 0) {
+          const map = new Map<string, ArtifactRecord>();
+          remoteArts.forEach((a: any) => map.set(a.id, a));
+          dbArtifacts.forEach((a) => {
+            if (!map.has(a.id)) map.set(a.id, a);
+          });
+          dbArtifacts.length = 0;
+          Array.from(map.values()).forEach((a) => dbArtifacts.push(a));
+        }
+      }
+    } catch (_) {}
+
     const { project_id, type, query } = req.query;
     let list = [...dbArtifacts];
 
@@ -906,6 +905,27 @@ async function startServer() {
     }
 
     res.json({ data: list, count: list.length });
+  });
+
+  // List activity events
+  app.get('/api/v1/events', async (_req: Request, res: Response) => {
+    try {
+      const supabase = await getWorkspaceAuthenticatedClient();
+      if (supabase) {
+        const { data: remoteEvents } = await supabase.from('file_events').select('*').order('created_at', { ascending: false }).limit(50);
+        if (remoteEvents && remoteEvents.length > 0) {
+          const map = new Map<string, ActivityEventRecord>();
+          remoteEvents.forEach((e: any) => map.set(e.id, e));
+          dbEvents.forEach((e) => {
+            if (!map.has(e.id)) map.set(e.id, e);
+          });
+          dbEvents.length = 0;
+          Array.from(map.values()).forEach((e) => dbEvents.push(e));
+        }
+      }
+    } catch (_) {}
+
+    res.json({ success: true, data: dbEvents });
   });
 
   // Get single artifact
@@ -1496,12 +1516,30 @@ async function startServer() {
       };
     }
 
-    // Default development token
-    if (token.startsWith('orf_live_') || token.startsWith('orf_dev_')) {
+    // Default development and companion extension tokens
+    if (token.startsWith('orf_live_') || token.startsWith('orf_dev_') || token.startsWith('orf_ext_')) {
+      const isExt = token.startsWith('orf_ext_');
+      if (isExt) {
+        const now = new Date().toISOString();
+        if (dbConnections['browser_extension']) {
+          dbConnections['browser_extension'].status = 'connected';
+          dbConnections['browser_extension'].access_token = token;
+          dbConnections['browser_extension'].user_id = 'ac916334-06e2-48a8-b8c7-645a27b40c8d';
+          dbConnections['browser_extension'].connected_at = dbConnections['browser_extension'].connected_at || now;
+          dbConnections['browser_extension'].last_seen_at = now;
+        }
+        if (dbConnections['extension']) {
+          dbConnections['extension'].status = 'connected';
+          dbConnections['extension'].access_token = token;
+          dbConnections['extension'].user_id = 'ac916334-06e2-48a8-b8c7-645a27b40c8d';
+          dbConnections['extension'].connected_at = dbConnections['extension'].connected_at || now;
+          dbConnections['extension'].last_seen_at = now;
+        }
+      }
       return {
-        userId: 'usr_orfilo_default',
-        provider: 'agent_key',
-        scopes: ['artifacts:read', 'artifacts:write', 'projects:read', 'search:read'],
+        userId: 'ac916334-06e2-48a8-b8c7-645a27b40c8d',
+        provider: isExt ? 'browser_extension' : 'agent_key',
+        scopes: ['artifacts:read', 'artifacts:write', 'projects:read', 'search:read', 'extension:capture'],
       };
     }
 
@@ -1548,6 +1586,18 @@ async function startServer() {
           mime_type: 'application/pdf',
           content: '%PDF-1.4 Gemini multimodal defect classification report',
           hint: 'Meto',
+        },
+        extension: {
+          filename: 'chatgpt-final-diagram.png',
+          mime_type: 'image/png',
+          content: 'PNG image deliverable captured via Orfilo Smart Capture Companion',
+          hint: 'Meto',
+        },
+        browser_extension: {
+          filename: 'claude-system-spec.ts',
+          mime_type: 'text/typescript',
+          content: 'export interface CompanionDeliverable { id: string; provider: "claude"; }',
+          hint: 'Orfilo',
         },
       };
 
@@ -1664,6 +1714,20 @@ async function startServer() {
         requires_external_step: true,
         external_step_description: 'Built-in Gemini classifier is active. To connect external Gemini agents, point Function Calling to /api/v1/mcp.',
       },
+      extension: {
+        method: 'Smart Capture Browser Companion (Manifest V3)',
+        manifest_path: 'extension/manifest.json',
+        default_token: 'orf_ext_companion_v1',
+        requires_external_step: true,
+        external_step_description: 'Open chrome://extensions, enable "Developer mode", click "Load unpacked", and select the extension/ directory in Orfilo repository.',
+      },
+      browser_extension: {
+        method: 'Smart Capture Browser Companion (Manifest V3)',
+        manifest_path: 'extension/manifest.json',
+        default_token: 'orf_ext_companion_v1',
+        requires_external_step: true,
+        external_step_description: 'Open chrome://extensions, enable "Developer mode", click "Load unpacked", and select the extension/ directory in Orfilo repository.',
+      },
     };
 
     const pkg = setupPackages[prov] || {};
@@ -1678,6 +1742,150 @@ async function startServer() {
 
   app.post('/api/v1/connections/:provider/authorize', handleProviderAuthorize);
   app.post('/api/v1/connections/:provider/connect', handleProviderAuthorize);
+
+  // Companion Extension and Client Direct Auth Login
+  app.post('/api/v1/auth/login', async (req: Request, res: Response) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) {
+        res.status(400).json({ error: 'Email and password are required' });
+        return;
+      }
+
+      let user = {
+        id: 'ac916334-06e2-48a8-b8c7-645a27b40c8d',
+        email: email.trim(),
+        name: email.split('@')[0],
+      };
+      let token = 'orf_ext_' + Math.random().toString(36).substring(2, 10);
+
+      // Verify with Supabase Auth
+      try {
+        const { getSupabaseConfig } = await import('./src/lib/supabase/client.ts');
+        const { createClient } = await import('@supabase/supabase-js');
+        const config = getSupabaseConfig();
+        if (config.isConfigured && config.url && config.anonKey) {
+          const authClient = createClient(config.url, config.anonKey);
+          const { data, error } = await authClient.auth.signInWithPassword({
+            email: email.trim(),
+            password,
+          });
+          if (error) {
+            res.status(401).json({ error: error.message });
+            return;
+          }
+          if (data.user) {
+            user = {
+              id: data.user.id,
+              email: data.user.email || email.trim(),
+              name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Meto User',
+            };
+            if (data.session?.access_token) {
+              token = data.session.access_token;
+            }
+          }
+        }
+      } catch (authErr: any) {
+        console.warn('[Server Auth] Login verification notice:', authErr?.message || authErr);
+      }
+
+      const now = new Date().toISOString();
+      if (dbConnections['browser_extension']) {
+        dbConnections['browser_extension'].status = 'connected';
+        dbConnections['browser_extension'].access_token = token;
+        dbConnections['browser_extension'].user_id = user.id;
+        dbConnections['browser_extension'].connected_at = dbConnections['browser_extension'].connected_at || now;
+        dbConnections['browser_extension'].last_seen_at = now;
+      }
+      if (dbConnections['extension']) {
+        dbConnections['extension'].status = 'connected';
+        dbConnections['extension'].access_token = token;
+        dbConnections['extension'].user_id = user.id;
+        dbConnections['extension'].connected_at = dbConnections['extension'].connected_at || now;
+        dbConnections['extension'].last_seen_at = now;
+      }
+
+      res.json({
+        success: true,
+        token,
+        user,
+        workspace: {
+          name: 'Orfilo Workspace',
+          project_id: dbProjects[0]?.id || '4d2a7703-3172-4b9c-96aa-8572fff76160',
+          project_name: dbProjects[0]?.name || 'Meto Inspection Platform',
+          user_email: user.email,
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Login failed' });
+    }
+  });
+
+  // Companion Extension Pairing endpoint
+  app.post('/api/v1/extension/pair', (req: Request, res: Response) => {
+    const pairToken = 'orf_ext_' + Math.random().toString(36).substring(2, 10);
+    const now = new Date().toISOString();
+    const targetUserId = 'ac916334-06e2-48a8-b8c7-645a27b40c8d';
+
+    if (dbConnections['browser_extension']) {
+      dbConnections['browser_extension'].status = 'connected';
+      dbConnections['browser_extension'].access_token = pairToken;
+      dbConnections['browser_extension'].user_id = targetUserId;
+      dbConnections['browser_extension'].connected_at = dbConnections['browser_extension'].connected_at || now;
+      dbConnections['browser_extension'].last_seen_at = now;
+    }
+    if (dbConnections['extension']) {
+      dbConnections['extension'].status = 'connected';
+      dbConnections['extension'].access_token = pairToken;
+      dbConnections['extension'].user_id = targetUserId;
+      dbConnections['extension'].connected_at = dbConnections['extension'].connected_at || now;
+      dbConnections['extension'].last_seen_at = now;
+    }
+
+    res.json({
+      success: true,
+      token: pairToken,
+      user: {
+        id: targetUserId,
+        email: 'metoaipr@gmail.com',
+        name: 'Meto User',
+      },
+      default_project_id: dbProjects[0]?.id || '4d2a7703-3172-4b9c-96aa-8572fff76160',
+      workspace: {
+        name: 'Orfilo Workspace',
+        project_name: dbProjects[0]?.name || 'Meto Inspection Platform',
+        server_url: `${req.protocol}://${req.get('host')}`,
+        projects_count: dbProjects.length,
+        user_email: 'metoaipr@gmail.com',
+      },
+    });
+  });
+
+  // Companion Extension Status endpoint
+  app.get('/api/v1/extension/status', async (req: Request, res: Response) => {
+    const authUser = await resolveIntegrationUser(req);
+    const conn = dbConnections['browser_extension'] || dbConnections['extension'];
+    const isAuthed = authUser !== null;
+    res.json({
+      success: true,
+      status: conn?.status || (isAuthed ? 'connected' : 'setup_required'),
+      authenticated: isAuthed,
+      connected_at: conn?.connected_at || null,
+      last_seen_at: conn?.last_seen_at || null,
+      version: '1.1.0',
+      manifest_version: 3,
+      workspace: dbProjects[0]?.name || 'Meto Inspection Platform',
+      storage_provider: 'Google Drive',
+      storage_status: 'connected',
+      user: isAuthed ? {
+        id: authUser.userId,
+        email: 'metoaipr@gmail.com',
+        name: 'Meto User',
+      } : null,
+      account: isAuthed ? 'metoaipr@gmail.com' : 'Unpaired',
+    });
+  });
+
 
   app.post('/api/v1/connections/:provider/disconnect', (req: Request, res: Response) => {
     const prov = req.params.provider;

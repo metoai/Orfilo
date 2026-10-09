@@ -1,6 +1,7 @@
 import React from 'react';
 import {
-  Sparkles,
+  CheckCircle2,
+  Tag,
   GripVertical,
   FileText,
   Image as ImageIcon,
@@ -94,13 +95,19 @@ export function ArtifactCard({
           </div>
 
           <div className="flex items-center gap-1.5">
-            <span
-              className="text-[10px] text-[#19A974] bg-[#E8F7F0] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-1"
-              title={`AI Confidence: ${Math.round(artifact.ai_confidence * 100)}%`}
-            >
-              <Sparkles className="w-2.5 h-2.5" />
-              <span>{Math.round(artifact.ai_confidence * 100)}%</span>
-            </span>
+            {artifact.source_type === 'browser_extension' ? (
+              <span
+                className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200/80 font-medium px-2 py-0.5 rounded-md flex items-center gap-1"
+                title="Captured via Companion Extension"
+              >
+                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                <span>Captured</span>
+              </span>
+            ) : (
+              <span className="text-[10px] text-neutral-600 bg-neutral-100 font-medium px-2 py-0.5 rounded-md">
+                {artifact.metadata?.category || 'Deliverable'}
+              </span>
+            )}
 
             {/* Grip handle to indicate draggability on desktop */}
             <div

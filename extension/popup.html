@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orfilo Smart Capture</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="brand">
+      <img src="icons/icon48.png" alt="Orfilo" class="logo">
+      <div class="brand-text">
+        <span class="title">Orfilo</span>
+        <span class="subtitle">Smart Capture</span>
+      </div>
+    </div>
+    <div class="status-pill" id="statusPill">
+      <span class="dot"></span>
+      <span class="status-text" id="statusText">Checking...</span>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- VIEW 1: AUTH GATE (When not authenticated / un-paired)                -->
+  <!-- ===================================================================== -->
+  <div id="view-auth" class="view-container">
+    <div class="auth-card">
+      <div class="auth-icon-wrapper">
+        <svg class="auth-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+
+      <h2 class="auth-title">Connect Your Workspace</h2>
+      <p class="auth-desc">
+        Pair this browser companion with your sovereign Orfilo account to capture AI deliverables straight into your Google Drive.
+      </p>
+
+      <div class="auth-storage-banner">
+        <span class="storage-icon">📁</span>
+        <span class="auth-storage-label">Target Storage: <strong>Google Drive (BYOS)</strong></span>
+      </div>
+
+      <div class="auth-benefits">
+        <div class="benefit-item">
+          <span class="benefit-check">✓</span>
+          <span>1-Click in-chat capture from Claude, ChatGPT & Gemini</span>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-check">✓</span>
+          <span>Automatic project routing & deliverable categorization</span>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-check">✓</span>
+          <span>Zero cloud retention — stays 100% in your Google Drive</span>
+        </div>
+      </div>
+
+      <!-- Direct Email & Password Sign In Form -->
+      <form id="authLoginForm" class="auth-login-form">
+        <div class="form-group">
+          <label class="form-label" for="loginEmail">Workspace Email</label>
+          <input type="email" id="loginEmail" class="form-input" value="metoaipr@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">Password</label>
+          <input type="password" id="loginPassword" class="form-input" value="Orfilo2026!Secure" required>
+        </div>
+        <button type="submit" id="btnSubmitLogin" class="btn btn-primary btn-auth-cta">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          <span>Sign In to Workspace</span>
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>OR 1-CLICK PAIR</span></div>
+
+      <div class="auth-actions">
+        <button id="btnQuickPair" class="btn btn-secondary btn-auth-secondary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <span>1-Click Connect Active Workspace</span>
+        </button>
+        <button id="btnConnectWorkspace" class="btn btn-link-auth">
+          <span>Open Web Dashboard Pairing ↗</span>
+        </button>
+      </div>
+
+      <!-- Manual Workspace Key Accordion -->
+      <div class="manual-auth-toggle">
+        <button type="button" id="btnToggleManual" class="manual-toggle-btn">
+          <span>Enter Workspace Key manually</span> <span id="manualToggleArrow">▾</span>
+        </button>
+      </div>
+
+      <div id="manualAuthBox" class="manual-auth-box hidden">
+        <div class="form-group">
+          <label class="form-label" for="authServerUrl">Server URL</label>
+          <input type="text" id="authServerUrl" class="form-input" value="http://localhost:3000">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="authTokenInput">Companion Key</label>
+          <input type="password" id="authTokenInput" class="form-input" placeholder="orf_ext_... or workspace key">
+        </div>
+        <button id="btnSubmitManualToken" class="btn btn-primary btn-sm">Connect with Key</button>
+      </div>
+
+      <div id="authNotice" class="auth-notice hidden"></div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VIEW 2: ACTIVE APP DASHBOARD (When authenticated)                     -->
+  <!-- ===================================================================== -->
+  <div id="view-app" class="view-container">
+    <!-- Confirmed Sign-In Alert Banner -->
+    <div class="auth-confirmed-banner" id="authConfirmedBanner">
+      <div class="confirmed-badge-icon">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <div class="confirmed-content">
+        <div class="confirmed-title" id="confirmedEmail">Signed In as metoaipr@gmail.com</div>
+        <div class="confirmed-subtitle" id="confirmedSub">Workspace Confirmed · Google Drive BYOS Connected</div>
+      </div>
+    </div>
+
+    <!-- Project Selector & Storage Info -->
+    <section class="section">
+      <label class="label" for="projectSelect">Active Project Destination</label>
+      <div class="select-wrapper">
+        <select id="projectSelect" class="select">
+          <option value="">Auto-Route (Smart Project Routing)</option>
+        </select>
+      </div>
+      <div class="storage-info-bar">
+        <div class="storage-info-item">
+          <span class="storage-icon">📁</span>
+          <span class="storage-text">Storage: <strong id="storageVal">Google Drive</strong></span>
+        </div>
+        <div class="storage-info-item">
+          <span class="storage-badge" id="accountVal">Connected</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Action Tabs -->
+    <nav class="tabs">
+      <button class="tab-btn active" data-tab="tab-capture">Quick Capture</button>
+      <button class="tab-btn" data-tab="tab-recent">Recent Captures (<span id="captureCount">0</span>)</button>
+      <button class="tab-btn" data-tab="tab-settings">Settings</button>
+    </nav>
+
+    <!-- TAB: Quick Capture -->
+    <div id="tab-capture" class="tab-content active">
+      <!-- Active Tab Capture Button -->
+      <button id="btnCaptureTab" class="btn btn-primary">
+        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span>Capture Current Page Deliverable</span>
+      </button>
+
+      <!-- File Drop Zone -->
+      <div id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" class="file-input" multiple>
+        <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        <p class="dropzone-text">Drop file or <strong>browse</strong></p>
+        <span class="dropzone-hint">PDF, PNG, SVG, TS, JSON, DOCX</span>
+      </div>
+
+      <!-- Quick Text / Code Snippet Capture -->
+      <div class="snippet-box">
+        <textarea id="snippetInput" class="snippet-textarea" placeholder="Paste prompt, code snippet, or spec to save as artifact..."></textarea>
+        <div class="snippet-actions">
+          <input type="text" id="snippetName" class="snippet-name-input" placeholder="artifact-name.ts (optional)">
+          <button id="btnSaveSnippet" class="btn btn-secondary">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Recent Captures -->
+    <div id="tab-recent" class="tab-content">
+      <div id="recentList" class="recent-list">
+        <div class="empty-state">No artifacts captured yet. Downloads and AI deliverables will appear here.</div>
+      </div>
+      <div class="recent-footer">
+        <button id="btnOpenOrfilo" class="btn-link">Open Orfilo Dashboard ↗</button>
+      </div>
+    </div>
+
+    <!-- TAB: Settings -->
+    <div id="tab-settings" class="tab-content">
+      <div class="settings-form">
+        <div class="form-group">
+          <label class="form-label" for="settingServerUrl">Orfilo Server URL</label>
+          <input type="text" id="settingServerUrl" class="form-input" placeholder="http://localhost:3000">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="settingApiKey">Companion API Token</label>
+          <input type="password" id="settingApiKey" class="form-input" placeholder="orf_ext_companion_v1">
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="settingInterceptDownloads" checked>
+            <span>Auto-intercept downloads from AI platforms</span>
+          </label>
+          <span class="field-hint">Catches downloads from ChatGPT, Claude, Gemini & Canva</span>
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="settingFinalitySignals" checked>
+            <span>Detect finality signals ("Perfect", "Looks good")</span>
+          </label>
+          <span class="field-hint">Prompts floating save pill when AI completes a task</span>
+        </div>
+
+        <button id="btnSaveSettings" class="btn btn-primary">Save Settings</button>
+        <span id="settingsSavedNotice" class="save-notice">✓ Settings saved</span>
+
+        <!-- Connected Workspace Session & Disconnect Card -->
+        <div class="session-card">
+          <div class="session-card-header">
+            <span class="session-card-title">Session State</span>
+            <span class="session-card-badge" id="sessionStatusTag">Paired</span>
+          </div>
+          <div class="session-card-body">
+            <div class="session-detail-row">
+              <span class="session-detail-label">Account</span>
+              <span class="session-detail-val font-semibold" id="sessionUserEmail">metoaipr@gmail.com</span>
+            </div>
+            <div class="session-detail-row">
+              <span class="session-detail-label">Storage</span>
+              <span class="session-detail-val" id="sessionStorageName">Google Drive</span>
+            </div>
+            <div class="session-detail-row">
+              <span class="session-detail-label">Key Status</span>
+              <span class="session-detail-val font-mono" id="sessionKeyPreview">Connected</span>
+            </div>
+          </div>
+          <button id="btnDisconnect" class="btn btn-danger">
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>Sign Out / Disconnect Workspace</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, Sparkles, Palette, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Folder, Palette, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Project, User } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
 

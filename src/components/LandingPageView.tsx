@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowRight, Sparkles, Check, Search, Folder, ShieldCheck, Database, HardDrive, Lock } from 'lucide-react';
+import { ArrowRight, Zap, Workflow, Check, Search, Folder, ShieldCheck, Database, HardDrive, Lock } from 'lucide-react';
 import { OrfiloBrand } from './OrfiloBrand.tsx';
 
 interface LandingPageViewProps {
@@ -56,8 +56,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       {/* Hero Section */}
       <main className="flex-1 max-w-5xl mx-auto px-6 py-16 md:py-24 text-center flex flex-col items-center">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#E8F7F0] text-[#19A974] text-xs font-medium mb-8 border border-[#19A974]/20">
-          <Sparkles className="w-3.5 h-3.5" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-medium mb-8 border border-emerald-200/80">
+          <Zap className="w-3.5 h-3.5 text-emerald-600" />
           <span>Everything your AI creates. Organized.</span>
         </div>
 
@@ -225,12 +225,12 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         {/* Feature Grid */}
         <section className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 text-left w-full">
           <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-2">
-            <div className="w-9 h-9 rounded-xl bg-[#E8F7F0] text-[#19A974] flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <Workflow className="w-5 h-5" />
             </div>
-            <h3 className="text-sm font-bold text-[#111111]">Quiet Intelligence</h3>
+            <h3 className="text-sm font-bold text-[#111111]">Automated Ingestion</h3>
             <p className="text-xs text-[#6B6B6B] leading-relaxed">
-              Orfilo interrupts only when human input materially improves the result. Otherwise, it quietly does the work.
+              Orfilo captures deliverables quietly via extension and API webhooks, categorizing every asset without disruption.
             </p>
           </div>
 

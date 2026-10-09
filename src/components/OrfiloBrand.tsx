@@ -13,6 +13,24 @@ export const OrfiloIcon: React.FC<{ size?: number; className?: string; theme?: '
   className = '',
   theme = 'light',
 }) => {
+  const [imgError, setImgError] = React.useState(false);
+  const iconSrc = theme === 'black' || theme === 'dark' ? '/brand/orfilo-icon-dark.png' : '/brand/orfilo-icon.png';
+
+  if (!imgError) {
+    return (
+      <img
+        src={iconSrc}
+        width={size}
+        height={size}
+        alt="Orfilo"
+        onError={() => setImgError(true)}
+        className={`shrink-0 object-contain select-none ${className}`}
+        style={{ width: `${size}px`, height: `${size}px` }}
+        loading="eager"
+      />
+    );
+  }
+
   return (
     <svg
       width={size}

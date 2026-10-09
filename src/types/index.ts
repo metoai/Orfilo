@@ -11,26 +11,26 @@ export interface Project {
   id: string;
   user_id: string;
   name: string;
-  description: string;
-  icon: string;
-  color: string;
+  description: string | null;
+  icon: string | null;
+  color: string | null;
   created_at: string;
   updated_at: string;
   artifact_count?: number;
 }
 
-export type StorageProviderType = 'google_drive' | 'supabase' | 'local_dev';
-export type ConnectionStatus = 'connected' | 'pending' | 'disconnected' | 'error';
+export type StorageProviderType = 'google_drive' | 'supabase' | 'local_dev' | string;
+export type ConnectionStatus = 'connected' | 'pending' | 'disconnected' | 'error' | string;
 
 export interface StorageConnection {
   id: string;
   user_id: string;
   provider: StorageProviderType;
-  account_name: string;
-  provider_account_id?: string;
+  account_name: string | null;
+  provider_account_id?: string | null;
   status: ConnectionStatus;
-  credential_reference?: string;
-  expires_at?: string;
+  credential_reference?: string | null;
+  expires_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -62,10 +62,10 @@ export interface Artifact {
   size_bytes: number;
   provider_file_id?: string | null;
   provider_path?: string | null;
-  description: string;
-  source_type: 'download_capture' | 'manual_upload' | 'agent_api' | 'ai_export';
-  source_name: 'Gemini' | 'ChatGPT' | 'Claude' | 'Midjourney' | 'DALL-E' | 'Custom';
-  ai_confidence: number;
+  description: string | null;
+  source_type: 'download_capture' | 'manual_upload' | 'agent_api' | 'ai_export' | 'browser_extension' | string | null;
+  source_name: 'Gemini' | 'ChatGPT' | 'Claude' | 'Midjourney' | 'DALL-E' | 'Custom' | string | null;
+  ai_confidence: number | null;
   metadata: ArtifactMetadata;
   created_at: string;
   updated_at: string;
@@ -79,8 +79,8 @@ export interface ArtifactEmbedding {
   created_at: string;
 }
 
-export type FileEventType = 'saved' | 'organized' | 'renamed' | 'moved' | 'downloaded' | 'deleted' | 'imported';
-export type ActorType = 'human' | 'ai_system' | 'integration';
+export type FileEventType = 'saved' | 'organized' | 'renamed' | 'moved' | 'downloaded' | 'deleted' | 'imported' | string;
+export type ActorType = 'human' | 'ai_system' | 'integration' | 'extension' | string;
 
 export interface FileEvent {
   id: string;
@@ -88,7 +88,7 @@ export interface FileEvent {
   artifact_id: string | null;
   event_type: FileEventType;
   actor_type: ActorType;
-  actor_id?: string;
+  actor_id?: string | null;
   metadata: {
     artifact_name?: string;
     project_name?: string;

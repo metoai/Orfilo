@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, FileText, CheckCircle2, Move, Edit3, Trash2, Clock, ShieldCheck } from 'lucide-react';
+import { Workflow, FileText, CheckCircle2, Move, Edit3, Trash2, Clock, ShieldCheck } from 'lucide-react';
 import { FileEvent } from '../types/index.ts';
 
 interface ActivityViewProps {
@@ -11,8 +11,8 @@ export const ActivityView: React.FC<ActivityViewProps> = ({ events }) => {
   const getEventIcon = (eventType: FileEvent['event_type'], actorType: FileEvent['actor_type']) => {
     if (actorType === 'ai_system' || eventType === 'organized') {
       return (
-        <div className="w-8 h-8 rounded-full bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0">
-          <Sparkles className="w-4 h-4" />
+        <div className="w-8 h-8 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+          <Workflow className="w-4 h-4" />
         </div>
       );
     }

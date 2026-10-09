@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Sparkles, Check, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, Check, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, Layers } from 'lucide-react';
 import { extractDeterministicMetadata, classifyArtifactWithGemini } from '../lib/ai/classifier.ts';
 import { AIOrganizationSuggestion, Project, Artifact, User } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
@@ -256,13 +256,10 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
             </div>
           ) : isAnalyzing ? (
             <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
-              <div className="relative">
-                <div className="w-12 h-12 rounded-full bg-[#E8F7F0] flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-[#19A974] animate-pulse" />
-                </div>
-                <Loader2 className="w-12 h-12 text-[#19A974] animate-spin absolute inset-0" />
+              <div className="w-12 h-12 rounded-2xl bg-neutral-100 flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-[#19A974] animate-spin" />
               </div>
-              <div className="text-sm font-semibold text-[#111111]">Orfilo is understanding your artifact...</div>
+              <div className="text-sm font-semibold text-[#111111]">Analyzing deliverable metadata...</div>
               <p className="text-xs text-[#6B6B6B] max-w-xs">
                 Extracting metadata, matching project context, and preparing smart location suggestions.
               </p>
@@ -283,9 +280,9 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#E8F7F0] text-[#19A974] text-[11px] font-medium">
-                    <Sparkles className="w-3 h-3" />
-                    {Math.round(suggestion.confidence * 100)}% match
+                  <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[11px] font-medium">
+                    <Check className="w-3 h-3" />
+                    <span>Auto-categorized</span>
                   </div>
                 </div>
 

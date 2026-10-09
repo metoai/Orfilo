@@ -12,11 +12,6 @@ export class GoogleDriveProvider implements IStorageProvider {
     this.accessToken = accessToken || null;
     // Check if real OAuth credentials are present
     this.isConfigured = Boolean(this.accessToken);
-
-    // Initialize development demo items if credentials pending
-    if (!this.isConfigured) {
-      this.initDevItems();
-    }
   }
 
   setAccessToken(token: string | null) {
@@ -26,27 +21,6 @@ export class GoogleDriveProvider implements IStorageProvider {
 
   getAccessToken(): string | null {
     return this.accessToken;
-  }
-
-  private initDevItems() {
-    this.mockItems.set('gd_sample_1', {
-      id: 'gd_sample_1',
-      name: 'meto-product-overview.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 245800,
-      path: 'Meto / Documentation',
-      isFolder: false,
-      modifiedTime: new Date().toISOString(),
-    });
-    this.mockItems.set('gd_sample_2', {
-      id: 'gd_sample_2',
-      name: 'landing-hero-concept.png',
-      mimeType: 'image/png',
-      sizeBytes: 1420500,
-      path: 'Meto / Marketing / Images',
-      isFolder: false,
-      modifiedTime: new Date().toISOString(),
-    });
   }
 
   async upload(file: File | Blob, path: string, filename: string): Promise<{ fileId: string; path: string; size: number }> {

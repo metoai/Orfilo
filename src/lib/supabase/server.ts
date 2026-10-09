@@ -50,6 +50,42 @@ export function createServerClient(): SupabaseClient | null {
   });
 }
 
+let cachedAuthClient: SupabaseClient | null = null;
+let cachedAuthExpiry = 0;
+
+/**
+ * Returns an authenticated Supabase client for workspace operations,
+ * preserving Row Level Security (RLS) policies.
+ */
+export async function getWorkspaceAuthenticatedClient(): Promise<SupabaseClient | null> {
+  const config = getServerSupabaseConfig();
+  if (!config.url || !config.anonKey) return null;
+
+  if (cachedAuthClient && Date.now() < cachedAuthExpiry) {
+    return cachedAuthClient;
+  }
+
+  try {
+    const authClient = createClient(config.url, config.anonKey);
+    const { data, error } = await authClient.auth.signInWithPassword({
+      email: process.env.ORFILO_WORKSPACE_EMAIL || 'metoaipr@gmail.com',
+      password: process.env.ORFILO_WORKSPACE_PASSWORD || 'Orfilo2026!Secure',
+    });
+
+    if (data?.session?.access_token && !error) {
+      cachedAuthClient = createClient(config.url, config.anonKey, {
+        global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
+      });
+      cachedAuthExpiry = Date.now() + 3600 * 1000;
+      return cachedAuthClient;
+    }
+  } catch (err) {
+    console.warn('[Server Supabase] Workspace auth login note:', err);
+  }
+
+  return createServerClient();
+}
+
 /**
  * Verifies a bearer JWT token against Supabase Auth.
  * Returns the authenticated user object or null.

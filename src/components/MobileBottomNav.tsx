@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import {
   Home,
-  Sparkles,
+  Puzzle,
+  Zap,
   Folder,
   Layers,
   Plus,
@@ -89,12 +90,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             }`}
           >
             <div className={`p-1 rounded-lg transition-transform relative ${activeTab === 'integrations' ? 'scale-110 bg-[#E8F7F0]' : ''}`}>
-              <Sparkles className="w-5 h-5" />
+              <Puzzle className="w-5 h-5" />
               {isAIConnected && (
                 <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-[#19A974] ring-2 ring-white" />
               )}
             </div>
-            <span className="text-[10px] mt-0.5 tracking-tight">AI Hub</span>
+            <span className="text-[10px] mt-0.5 tracking-tight">Integrations</span>
           </button>
 
           {/* Quick Add Floating Button (Center) */}
@@ -275,15 +276,15 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                 className="w-full flex items-center justify-between p-3.5 hover:bg-neutral-50 transition-colors cursor-pointer text-[#111111]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-[#E8F7F0] flex items-center justify-center text-[#19A974]">
-                    <Sparkles className="w-4 h-4" />
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                    <Zap className="w-4 h-4" />
                   </div>
                   <div className="text-left">
                     <div className="font-semibold flex items-center gap-1.5">
-                      <span>1-Click AI Connect</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#E8F7F0] text-[#19A974] font-semibold">Instant</span>
+                      <span>Companion Extension</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">v1.1</span>
                     </div>
-                    <div className="text-[11px] text-[#6B6B6B]">ChatGPT, Claude, Gemini, Cursor in 1 click</div>
+                    <div className="text-[11px] text-[#6B6B6B]">Capture deliverables from ChatGPT, Claude, Gemini</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
