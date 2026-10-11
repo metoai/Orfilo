@@ -5,7 +5,6 @@ import { OrfiloBrand } from './OrfiloBrand.tsx';
 interface LandingPageViewProps {
   onSignIn: () => void;
   onSignUp: () => void;
-  onExploreDemo?: () => void;
   isLoggedIn?: boolean;
   onReturnToDashboard?: () => void;
 }
@@ -13,7 +12,6 @@ interface LandingPageViewProps {
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
   onSignIn,
   onSignUp,
-  onExploreDemo,
   isLoggedIn = false,
   onReturnToDashboard,
 }) => {
@@ -81,14 +79,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </button>
 
-          {onExploreDemo && (
-            <button
-              onClick={onExploreDemo}
-              className="w-full sm:w-auto px-5 py-3 border border-[#E7E7E4] hover:border-[#111111] bg-white rounded-xl text-sm font-medium text-[#111111] transition-colors cursor-pointer"
-            >
-              Explore workspace
-            </button>
-          )}
 
           <button
             onClick={() => {

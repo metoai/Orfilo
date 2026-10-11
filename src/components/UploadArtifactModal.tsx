@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { Upload, Check, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, Layers } from 'lucide-react';
-import { extractDeterministicMetadata, classifyArtifactWithGemini } from '../lib/ai/classifier.ts';
+import { extractDeterministicMetadata, classifyArtifact } from '../lib/ai/classifier.ts';
 import { AIOrganizationSuggestion, Project, Artifact, User } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
-import { defaultStorageProvider } from '../lib/storage/GoogleDriveProvider.ts';
 
 interface UploadArtifactModalProps {
   isOpen: boolean;
@@ -43,28 +42,35 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
 
     try {
       const deterministic = extractDeterministicMetadata(selectedFile);
-      const projectNames = projects.map(p => p.name);
+      const aiSuggestion = await classifyArtifact(deterministic.original_name, deterministic.mime_type);
 
-      const aiSuggestion = await classifyArtifactWithGemini({
-        filename: deterministic.original_name,
-        extension: deterministic.extension,
-        mimeType: deterministic.mime_type,
-        sizeBytes: deterministic.size_bytes,
-        availableProjects: projectNames,
-      });
+      if (aiSuggestion) {
+        setSuggestion(aiSuggestion);
+        setDisplayName(aiSuggestion.suggested_name);
 
-      setSuggestion(aiSuggestion);
-      setDisplayName(aiSuggestion.suggested_name);
-
-      // Match project
-      const matched = projects.find(p => p.name.toLowerCase() === aiSuggestion.project_name.toLowerCase());
-      if (matched) {
-        setSelectedProjectId(matched.id);
-      } else if (projects.length > 0) {
-        setSelectedProjectId(projects[0].id);
+        const matched = projects.find(p => p.name.toLowerCase() === aiSuggestion.project_name.toLowerCase());
+        if (matched) {
+          setSelectedProjectId(matched.id);
+        } else if (projects.length > 0) {
+          setSelectedProjectId(projects[0].id);
+        }
+      } else {
+        const fallbackSuggestion: AIOrganizationSuggestion = {
+          project_name: projects[0]?.name || '',
+          category: 'General',
+          purpose: 'Artifact',
+          suggested_name: deterministic.original_name,
+          suggested_location: 'General',
+          reasoning: 'Uploaded file',
+        };
+        setSuggestion(fallbackSuggestion);
+        setDisplayName(deterministic.original_name);
+        if (projects.length > 0) {
+          setSelectedProjectId(projects[0].id);
+        }
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Analysis fallback activated');
+      setErrorMsg(err.message || 'Analysis failed');
     } finally {
       setIsAnalyzing(false);
     }
@@ -77,8 +83,7 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
     }
   };
 
-  // Preset demo test helper for validating the master build prompt workflow:
-  // "AI creates: image_847392_final2.png -> Orfilo suggests meto-hero-v1.png"
+  // Preset demo test helper
   const handleSimulateSample = (sampleType: 'image' | 'pdf') => {
     if (sampleType === 'image') {
       const sampleFile = new File(['[Binary image content]'], 'image_847392_final2.png', { type: 'image/png' });
@@ -95,7 +100,7 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
 
   const handleSave = async () => {
     if (!file || !suggestion) return;
-    if (!currentUser && db.isSupabaseConfigured()) {
+    if (!currentUser) {
       setErrorMsg('Please sign in to save artifacts to your workspace.');
       if (onRequireAuth) {
         onClose();
@@ -110,20 +115,6 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
     try {
       const deterministic = extractDeterministicMetadata(file);
 
-      let providerFileId: string | null = null;
-      if (defaultStorageProvider.isConfigured) {
-        try {
-          const uploadRes = await defaultStorageProvider.upload(
-            file,
-            suggestion.suggested_location,
-            displayName.trim() || suggestion.suggested_name
-          );
-          providerFileId = uploadRes.fileId;
-        } catch (storageErr) {
-          console.warn('Storage provider sync notice:', storageErr);
-        }
-      }
-
       const newArtifact = await db.createArtifact({
         original_name: deterministic.original_name,
         display_name: displayName.trim() || suggestion.suggested_name,
@@ -131,12 +122,11 @@ export const UploadArtifactModal: React.FC<UploadArtifactModalProps> = ({
         extension: deterministic.extension,
         size_bytes: deterministic.size_bytes,
         project_id: selectedProjectId || null,
-        provider_file_id: providerFileId,
         provider_path: suggestion.suggested_location,
-        description: suggestion.reasoning,
+        description: suggestion.reasoning || null,
         source_type: sourceType,
         source_name: sourceName,
-        ai_confidence: suggestion.confidence,
+        ai_confidence: suggestion.confidence ?? null,
         metadata: {
           category: suggestion.category,
           purpose: suggestion.purpose,

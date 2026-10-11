@@ -31,8 +31,8 @@ export const getServerSupabaseConfig = () => {
 };
 
 /**
- * Server-side privileged Supabase client.
- * Never import or invoke this from browser components.
+ * Server-side privileged Supabase client using the service role key.
+ * Used for admin operations, verifying JWTs, and extension API token lookup.
  */
 export function createServerClient(): SupabaseClient | null {
   const config = getServerSupabaseConfig();
@@ -50,40 +50,28 @@ export function createServerClient(): SupabaseClient | null {
   });
 }
 
-let cachedAuthClient: SupabaseClient | null = null;
-let cachedAuthExpiry = 0;
-
 /**
- * Returns an authenticated Supabase client for workspace operations,
- * preserving Row Level Security (RLS) policies.
+ * User-scoped Supabase client preserving Row Level Security (RLS) policies.
+ * Uses anon key (or service key fallback) and passes the user's JWT in the Authorization header.
  */
-export async function getWorkspaceAuthenticatedClient(): Promise<SupabaseClient | null> {
+export function createUserClient(token: string): SupabaseClient | null {
   const config = getServerSupabaseConfig();
-  if (!config.url || !config.anonKey) return null;
-
-  if (cachedAuthClient && Date.now() < cachedAuthExpiry) {
-    return cachedAuthClient;
+  const keyToUse = config.anonKey || config.serviceRoleKey;
+  if (!config.url || !keyToUse) {
+    return null;
   }
 
-  try {
-    const authClient = createClient(config.url, config.anonKey);
-    const { data, error } = await authClient.auth.signInWithPassword({
-      email: process.env.ORFILO_WORKSPACE_EMAIL || 'metoaipr@gmail.com',
-      password: process.env.ORFILO_WORKSPACE_PASSWORD || 'Orfilo2026!Secure',
-    });
-
-    if (data?.session?.access_token && !error) {
-      cachedAuthClient = createClient(config.url, config.anonKey, {
-        global: { headers: { Authorization: `Bearer ${data.session.access_token}` } },
-      });
-      cachedAuthExpiry = Date.now() + 3600 * 1000;
-      return cachedAuthClient;
-    }
-  } catch (err) {
-    console.warn('[Server Supabase] Workspace auth login note:', err);
-  }
-
-  return createServerClient();
+  return createClient(config.url, keyToUse, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
 }
 
 /**

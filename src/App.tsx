@@ -38,26 +38,20 @@ import {
   LogIn,
 } from 'lucide-react';
 import { OrfiloBrand, OrfiloIcon } from './components/OrfiloBrand.tsx';
-import { SupabaseSetupModal } from './components/SupabaseSetupModal.tsx';
 import { UploadArtifactModal } from './components/UploadArtifactModal.tsx';
 import { ArtifactDetailDrawer } from './components/ArtifactDetailDrawer.tsx';
 import { ArtifactCard } from './components/ArtifactCard.tsx';
 import { ProjectModal } from './components/ProjectModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
-import { StorageSettingsView } from './components/StorageSettingsView.tsx';
 import { ActivityView } from './components/ActivityView.tsx';
 import { LandingPageView } from './components/LandingPageView.tsx';
 import { ExtensionPairModal } from './components/ExtensionPairModal.tsx';
-import { IntegrationHubView } from './components/IntegrationHubView.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
-import { queryOrfiloAI } from './lib/ai/classifier.ts';
 import { db } from './lib/supabase/db.ts';
-import { getSupabaseConfig, createBrowserClient } from './lib/supabase/client.ts';
-import { defaultStorageProvider } from './lib/storage/GoogleDriveProvider.ts';
-import { subscribeToGoogleDriveState, initSupabaseGoogleDriveAuth } from './lib/storage/googleAuth.ts';
+import { createBrowserClient } from './lib/supabase/client.ts';
 import { Project, Artifact, FileEvent, User } from './types/index.ts';
 
-type NavigationTab = 'home' | 'integrations' | 'projects' | 'artifacts' | 'activity' | 'storage' | 'settings' | 'landing';
+type NavigationTab = 'home' | 'projects' | 'artifacts' | 'activity' | 'settings' | 'landing';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
@@ -78,16 +72,9 @@ export default function App() {
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
-  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
-   const [isExtensionPairModalOpen, setIsExtensionPairModalOpen] = useState(false);
-  const [isAskingAI, setIsAskingAI] = useState(false);
-  const [aiQueryResult, setAiQueryResult] = useState<{
-    answer: string;
-    matched_artifact_ids: string[];
-    suggested_action?: string;
-  } | null>(null);
+  const [isExtensionPairModalOpen, setIsExtensionPairModalOpen] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -108,7 +95,6 @@ export default function App() {
         setIsProjectModalOpen(false);
         setIsExtensionPairModalOpen(false);
         setIsAuthModalOpen(false);
-        setIsSetupModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -190,7 +176,10 @@ export default function App() {
     }
 
     try {
-      await db.moveArtifact(artifactId, targetProjectId, newLocationPath);
+      await db.updateArtifact(artifactId, {
+        project_id: targetProjectId,
+        provider_path: newLocationPath,
+      });
       const [freshProjects, freshEvents] = await Promise.all([
         db.getProjects(),
         db.getEvents(),
@@ -241,7 +230,10 @@ export default function App() {
     }
 
     try {
-      await db.moveArtifact(artifactId, previousProjectId, restoredPath);
+      await db.updateArtifact(artifactId, {
+        project_id: previousProjectId,
+        provider_path: restoredPath,
+      });
       const [freshProjects, freshEvents] = await Promise.all([
         db.getProjects(),
         db.getEvents(),
@@ -254,25 +246,7 @@ export default function App() {
     }
   };
 
-  const handleAskAI = async (textToQuery?: string) => {
-    const q = (textToQuery !== undefined ? textToQuery : searchQuery).trim();
-    if (!q) return;
-    setIsAskingAI(true);
-    try {
-      const res = await queryOrfiloAI({ query: q, artifacts });
-      setAiQueryResult(res);
-    } catch (err) {
-      console.warn('AI query error:', err);
-    } finally {
-      setIsAskingAI(false);
-    }
-  };
-
-  const { isConfigured: isSupabaseConfigured, url: supabaseUrl } = getSupabaseConfig();
-  const [schemaStatus, setSchemaStatus] = useState(() => db.getSchemaStatus());
-  const [isGoogleDriveConnected, setIsGoogleDriveConnected] = useState(defaultStorageProvider.isConfigured);
-
-  // Load initial data
+  // Load initial workspace data from Supabase backend
   const loadWorkspaceData = async () => {
     setIsLoading(true);
     setGlobalError(null);
@@ -282,9 +256,18 @@ export default function App() {
 
       if (currentUser) {
         const [projList, artList, eventList] = await Promise.all([
-          db.getProjects(currentUser.id).catch(() => []),
-          db.getArtifacts().catch(() => []),
-          db.getEvents().catch(() => []),
+          db.getProjects().catch((err) => {
+            console.error('Failed to load projects:', err);
+            return [];
+          }),
+          db.getArtifacts().catch((err) => {
+            console.error('Failed to load artifacts:', err);
+            return [];
+          }),
+          db.getEvents().catch((err) => {
+            console.error('Failed to load events:', err);
+            return [];
+          }),
         ]);
 
         setProjects(projList);
@@ -295,10 +278,8 @@ export default function App() {
         setArtifacts([]);
         setEvents([]);
       }
-      setSchemaStatus(db.getSchemaStatus());
     } catch (err: any) {
-      console.warn('Workspace data loading notice:', err);
-      setSchemaStatus(db.getSchemaStatus());
+      console.warn('Workspace data loading error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -306,16 +287,11 @@ export default function App() {
 
   useEffect(() => {
     loadWorkspaceData();
-    initSupabaseGoogleDriveAuth();
 
-    // Listen for auth state changes if Supabase client is live
     const client = createBrowserClient();
     if (client) {
       const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
-          if (session.provider_token) {
-            initSupabaseGoogleDriveAuth();
-          }
           const profile: User = {
             id: session.user.id,
             email: session.user.email || '',
@@ -325,18 +301,9 @@ export default function App() {
             updated_at: new Date().toISOString(),
           };
           setUser(profile);
-          try {
-            await client.from('users').upsert({
-              id: profile.id,
-              email: profile.email,
-              name: profile.name,
-              avatar_url: profile.avatar_url,
-              updated_at: profile.updated_at,
-            }, { onConflict: 'id' });
-          } catch (_) {}
 
           const [projList, artList, eventList] = await Promise.all([
-            db.getProjects(profile.id).catch(() => []),
+            db.getProjects().catch(() => []),
             db.getArtifacts().catch(() => []),
             db.getEvents().catch(() => []),
           ]);
@@ -352,43 +319,14 @@ export default function App() {
         setIsLoading(false);
       });
 
-      const unsubDrive = subscribeToGoogleDriveState((state) => {
-        setIsGoogleDriveConnected(state.isConnected);
-      });
-
       const onFocus = () => {
         loadWorkspaceData();
       };
       window.addEventListener('focus', onFocus);
-
-      const pollInterval = setInterval(() => {
-        loadWorkspaceData();
-      }, 5000);
 
       return () => {
         subscription.unsubscribe();
-        unsubDrive();
         window.removeEventListener('focus', onFocus);
-        clearInterval(pollInterval);
-      };
-    } else {
-      const unsubDrive = subscribeToGoogleDriveState((state) => {
-        setIsGoogleDriveConnected(state.isConnected);
-      });
-
-      const onFocus = () => {
-        loadWorkspaceData();
-      };
-      window.addEventListener('focus', onFocus);
-
-      const pollInterval = setInterval(() => {
-        loadWorkspaceData();
-      }, 5000);
-
-      return () => {
-        unsubDrive();
-        window.removeEventListener('focus', onFocus);
-        clearInterval(pollInterval);
       };
     }
   }, []);
@@ -403,44 +341,6 @@ export default function App() {
     setArtifacts([]);
     setEvents([]);
     setActiveTab('home');
-  };
-
-  const handleExploreDemo = async () => {
-    setIsLoading(true);
-    const client = createBrowserClient();
-    if (client && isSupabaseConfigured) {
-      try {
-        const { data, error } = await client.auth.signInWithPassword({
-          email: 'metoaipr@gmail.com',
-          password: 'Orfilo2026!Secure',
-        });
-        if (data?.user && !error) {
-          const profile: User = {
-            id: data.user.id,
-            email: data.user.email || 'metoaipr@gmail.com',
-            name: data.user.user_metadata?.full_name || 'Meto User',
-            avatar_url: null,
-            created_at: data.user.created_at,
-            updated_at: new Date().toISOString(),
-          };
-          setUser(profile);
-          await loadWorkspaceData();
-          return;
-        }
-      } catch (e) {
-        console.warn('Demo login notice:', e);
-      }
-    }
-    const seed = await db.getCurrentUser();
-    setUser(seed || {
-      id: 'usr_meto_preview',
-      email: 'metoaipr@gmail.com',
-      name: 'Meto User',
-      avatar_url: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    await loadWorkspaceData();
   };
 
   // Handlers for real DB persistence
@@ -553,7 +453,6 @@ export default function App() {
             setAuthModalMode('signup');
             setIsAuthModalOpen(true);
           }}
-          onExploreDemo={handleExploreDemo}
         />
         <AuthModal
           isOpen={isAuthModalOpen}
@@ -575,7 +474,6 @@ export default function App() {
       <LandingPageView
         onSignIn={() => setActiveTab('home')}
         onSignUp={() => setActiveTab('home')}
-        onExploreDemo={() => setActiveTab('home')}
         isLoggedIn={true}
         onReturnToDashboard={() => setActiveTab('home')}
       />
@@ -642,25 +540,6 @@ export default function App() {
                 <span>Home</span>
               </button>
 
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setActiveTab('integrations');
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                  activeTab === 'integrations'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Puzzle className="w-4 h-4 text-[#19A974]" />
-                  <span>Integrations</span>
-                </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#E8F7F0] text-[#19A974] font-semibold">
-                  Hub
-                </span>
-              </button>
 
               <button
                 onClick={() => {
@@ -838,23 +717,6 @@ export default function App() {
             </nav>
 
             <div className="border-t border-[#E7E7E4] pt-4 space-y-1 text-xs">
-              <button
-                onClick={() => setActiveTab('storage')}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                  activeTab === 'storage'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <HardDrive className="w-4 h-4" />
-                  <span>Storage</span>
-                </div>
-                {isGoogleDriveConnected && (
-                  <span className="w-2 h-2 rounded-full bg-[#19A974] ring-2 ring-emerald-100" />
-                )}
-              </button>
-
               {/* Chrome Extension Companion */}
               <button
                 onClick={() => setIsExtensionPairModalOpen(true)}
@@ -865,9 +727,6 @@ export default function App() {
                   <Zap className="w-4 h-4 text-[#19A974]" />
                   <span>Extension</span>
                 </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
-                  v1.1
-                </span>
               </button>
 
               <button
@@ -1023,36 +882,19 @@ export default function App() {
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && searchQuery.trim()) {
-                          handleAskAI();
-                        }
-                      }}
                       placeholder="Search artifacts by name, project, extension... (Press ⌘K or / to focus)"
-                      className="w-full pl-11 pr-28 py-3 bg-white border border-[#E7E7E4] hover:border-neutral-400 focus:border-[#19A974] rounded-2xl text-xs text-[#111111] placeholder:text-neutral-400 shadow-xs focus:outline-none transition-all"
+                      className="w-full pl-11 pr-10 py-3 bg-white border border-[#E7E7E4] hover:border-neutral-400 focus:border-[#19A974] rounded-2xl text-xs text-[#111111] placeholder:text-neutral-400 shadow-xs focus:outline-none transition-all"
                     />
-                    <div className="absolute right-3 flex items-center gap-1.5">
-                      {searchQuery && (
+                    {searchQuery && (
+                      <div className="absolute right-3 flex items-center">
                         <button
-                          onClick={() => {
-                            setSearchQuery('');
-                            setAiQueryResult(null);
-                          }}
-                          className="text-xs text-neutral-400 hover:text-black p-1 cursor-pointer mr-1"
+                          onClick={() => setSearchQuery('')}
+                          className="text-xs text-neutral-400 hover:text-black p-1 cursor-pointer"
                         >
                           ✕
                         </button>
-                      )}
-                      <button
-                        onClick={() => handleAskAI()}
-                        disabled={isAskingAI || !searchQuery.trim()}
-                        className="px-3 py-1.5 bg-[#111111] hover:bg-neutral-800 disabled:opacity-40 text-white rounded-xl text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
-                        title="Search deliverables"
-                      >
-                        <Search className={`w-3 h-3 ${isAskingAI ? 'animate-spin' : ''}`} />
-                        <span>{isAskingAI ? 'Searching...' : 'Search'}</span>
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Mobile Quick Project Folder Pills Strip */}
@@ -1089,45 +931,6 @@ export default function App() {
                       );
                     })}
                   </div>
-
-                  {/* Ask AI Result Insight Banner */}
-                  {aiQueryResult && (
-                    <div className="bg-white border border-[#19A974]/30 rounded-2xl p-4 shadow-xs animate-in fade-in duration-200 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                            <Compass className="w-3.5 h-3.5" />
-                          </div>
-                          <span className="text-xs font-bold text-[#111111]">Orfilo Query Analysis</span>
-                          <span className="text-[10px] font-mono text-[#19A974] bg-[#E8F7F0] px-1.5 py-0.2 rounded font-medium">
-                            Gemini 3.8 Flash
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => setAiQueryResult(null)}
-                          className="text-neutral-400 hover:text-[#111111] text-xs cursor-pointer p-1"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                      <p className="text-xs text-[#333333] leading-relaxed">
-                        {aiQueryResult.answer}
-                      </p>
-                      {aiQueryResult.matched_artifact_ids.length > 0 && (
-                        <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[11px] text-[#6B6B6B]">
-                          <span>
-                            {aiQueryResult.matched_artifact_ids.length} matching artifact(s) identified
-                          </span>
-                          <button
-                            onClick={() => setIsExtensionPairModalOpen(true)}
-                            className="text-[#19A974] hover:underline font-medium cursor-pointer"
-                          >
-                            Capture more via Extension →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {/* Quick AI Connect Helper Strip */}
                   <div className="flex items-center justify-between px-1 text-[11px] text-[#6B6B6B]">
@@ -1607,9 +1410,6 @@ export default function App() {
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         onClick={() => setSelectedArtifact(art)}
-                        highlightMatch={Boolean(
-                          aiQueryResult?.matched_artifact_ids.includes(art.id)
-                        )}
                       />
                     ))}
                   </div>
@@ -1617,22 +1417,8 @@ export default function App() {
               </div>
             )}
 
-            {/* View: Integrations Hub */}
-            {activeTab === 'integrations' && (
-              <IntegrationHubView
-                projects={projects}
-                onArtifactCreated={handleArtifactCreated}
-                onOpenUpload={() => setIsUploadOpen(true)}
-                onOpenExtensionModal={() => setIsExtensionPairModalOpen(true)}
-                onOpenStorage={() => setActiveTab('storage')}
-              />
-            )}
-
             {/* View: Activity */}
             {activeTab === 'activity' && <ActivityView events={events} onRefresh={loadWorkspaceData} />}
-
-            {/* View: Storage */}
-            {activeTab === 'storage' && <StorageSettingsView currentUser={user} />}
 
             {/* View: Settings */}
             {activeTab === 'settings' && (
@@ -1640,86 +1426,43 @@ export default function App() {
                 <div>
                   <h1 className="text-xl font-bold text-[#111111]">Workspace Settings</h1>
                   <p className="text-xs text-[#6B6B6B] mt-0.5">
-                    Supabase connection, Row Level Security status, and environment variables
+                    Account management and extension pairing
                   </p>
                 </div>
 
-                {/* Supabase Status Card */}
+                {/* Account Details Card */}
                 <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${isSupabaseConfigured ? 'bg-[#E8F7F0] text-[#19A974]' : 'bg-amber-50 text-amber-600'}`}>
-                        <Database className="w-5 h-5" />
+                      <div className="w-10 h-10 rounded-full bg-[#111111] text-white flex items-center justify-center font-bold text-sm shrink-0">
+                        {user.name ? user.name[0].toUpperCase() : 'U'}
                       </div>
                       <div>
-                        <h2 className="text-sm font-semibold text-[#111111]">Supabase PostgreSQL Backend</h2>
-                        <p className="text-xs text-[#6B6B6B]">
-                          {isSupabaseConfigured ? 'Active & Connected' : 'Missing Credentials (Dev Sandbox Active)'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setIsSetupModalOpen(true)}
-                      className="px-3 py-1.5 border border-[#E7E7E4] hover:border-[#111111] rounded-xl text-xs font-medium text-[#111111] bg-white cursor-pointer"
-                    >
-                      View Config Details
-                    </button>
-                  </div>
-
-                  <div className="pt-3 border-t border-[#E7E7E4] text-xs space-y-2">
-                    <div className="flex justify-between text-[#6B6B6B]">
-                      <span>Row Level Security (RLS):</span>
-                      <span className="font-medium text-[#111111]">Hardened (User-scoped only)</span>
-                    </div>
-                    <div className="flex justify-between text-[#6B6B6B]">
-                      <span>Tables Defined:</span>
-                      <span className="font-mono text-[#111111]">users, projects, storage_connections, artifacts, artifact_embeddings, file_events</span>
-                    </div>
-                    <div className="flex justify-between text-[#6B6B6B]">
-                      <span>Service Role Key Exposure:</span>
-                      <span className="text-[#19A974] font-medium">Protected (Server-side only)</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Google Drive Status */}
-                <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <HardDrive className="w-5 h-5 text-neutral-600" />
-                      <div>
-                        <h2 className="text-sm font-semibold text-[#111111]">Google Drive StorageProvider</h2>
-                        <p className="text-xs text-[#6B6B6B]">
-                          {isGoogleDriveConnected ? 'Connected & Active (OAuth)' : 'Not Connected'}
-                        </p>
+                        <h2 className="text-sm font-semibold text-[#111111]">{user.name}</h2>
+                        <p className="text-xs text-[#6B6B6B] font-mono">{user.email}</p>
                       </div>
                     </div>
                     <button
-                      onClick={() => setActiveTab('storage')}
-                      className="text-xs text-[#19A974] hover:underline cursor-pointer"
+                      onClick={handleSignOut}
+                      className="px-3.5 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
                     >
-                      Manage
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>Sign Out</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Companion Extension & Ingestion Hub */}
+                {/* Companion Extension Card */}
                 <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                        <Cpu className="w-5 h-5" />
+                        <Zap className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-sm font-semibold text-[#111111]">Companion Extension & Ingestion</h2>
-                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">
-                            v1.1 Active
-                          </span>
-                        </div>
+                        <h2 className="text-sm font-semibold text-[#111111]">Chrome Extension Companion</h2>
                         <p className="text-xs text-[#6B6B6B]">
-                          Captures deliverables directly from ChatGPT, Claude, Gemini, and v0
+                          Pair the browser extension to capture files directly from AI tools
                         </p>
                       </div>
                     </div>
@@ -1768,11 +1511,6 @@ export default function App() {
         onProjectDeleted={handleProjectDeleted}
       />
 
-      <SupabaseSetupModal
-        isOpen={isSetupModalOpen}
-        onClose={() => setIsSetupModalOpen(false)}
-      />
-
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -1785,8 +1523,6 @@ export default function App() {
       <ExtensionPairModal
         isOpen={isExtensionPairModalOpen}
         onClose={() => setIsExtensionPairModalOpen(false)}
-        projects={projects}
-        onArtifactCreated={handleArtifactCreated}
       />
 
       {/* Floating Dragging Indicator */}

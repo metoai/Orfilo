@@ -57,7 +57,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
       return;
     }
 
-    if (!currentUser && db.isSupabaseConfigured()) {
+    if (!currentUser) {
       setErrorMsg('Please sign in to save projects to your workspace.');
       if (onRequireAuth) {
         onClose();

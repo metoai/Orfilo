@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { X, Download, Trash2, Edit2, FolderInput, Check, Info, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, HardDrive } from 'lucide-react';
 import { Artifact, Project } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
-import { defaultStorageProvider } from '../lib/storage/GoogleDriveProvider.ts';
 
 interface ArtifactDetailDrawerProps {
   artifact: Artifact | null;
@@ -43,7 +42,7 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
     setIsProcessing(true);
     setErrorMsg(null);
     try {
-      const updated = await db.renameArtifact(artifact.id, editedName.trim());
+      const updated = await db.updateArtifact(artifact.id, { display_name: editedName.trim() });
       onArtifactUpdated(updated);
       setIsEditingName(false);
     } catch (err: any) {
@@ -65,7 +64,10 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
     try {
       const proj = projects.find(p => p.id === selectedProjectId);
       const computedPath = newPath.trim() || (proj ? `${proj.name} / ${artifact.metadata.category || 'General'}` : 'Unassigned');
-      const updated = await db.moveArtifact(artifact.id, selectedProjectId || null, computedPath);
+      const updated = await db.updateArtifact(artifact.id, {
+        project_id: selectedProjectId || null,
+        provider_path: computedPath,
+      });
       onArtifactUpdated(updated);
       setIsMoving(false);
     } catch (err: any) {
@@ -79,13 +81,6 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
     setIsProcessing(true);
     setErrorMsg(null);
     try {
-      if (artifact.provider_file_id && defaultStorageProvider.isConfigured) {
-        try {
-          await defaultStorageProvider.delete(artifact.provider_file_id);
-        } catch (storageErr) {
-          console.warn('Storage provider deletion notice:', storageErr);
-        }
-      }
       await db.deleteArtifact(artifact.id);
       onArtifactDeleted(artifact.id);
       onClose();
@@ -93,22 +88,6 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
       setErrorMsg(err.message || 'Failed to delete artifact');
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleDownload = async () => {
-    try {
-      const blob = await defaultStorageProvider.download(artifact.provider_file_id || artifact.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = artifact.display_name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err: any) {
-      setErrorMsg('Download simulated: ' + err.message);
     }
   };
 
@@ -403,16 +382,10 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
         </div>
 
         {/* Drawer Footer */}
-        <div className="px-6 py-4 border-t border-[#E7E7E4] bg-white flex items-center justify-between shrink-0">
-          <button
-            onClick={handleDownload}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#111111] hover:bg-neutral-800 text-white rounded-xl text-xs font-medium transition-colors cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5" /> Download
-          </button>
+        <div className="px-6 py-4 border-t border-[#E7E7E4] bg-white flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-3 py-2 text-xs text-[#6B6B6B] hover:text-[#111111]"
+            className="px-4 py-2 border border-[#E7E7E4] hover:border-[#111111] text-[#111111] rounded-xl text-xs font-medium transition-colors cursor-pointer"
           >
             Close
           </button>

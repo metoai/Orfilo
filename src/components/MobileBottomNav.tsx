@@ -1,25 +1,21 @@
 import React, { useState } from 'react';
 import {
   Home,
-  Puzzle,
   Zap,
   Folder,
   Layers,
   Plus,
   SlidersHorizontal,
   Activity,
-  HardDrive,
   Settings,
   LogIn,
   LogOut,
-  User as UserIcon,
   X,
   ChevronRight,
-  ExternalLink,
 } from 'lucide-react';
 import { Project, User } from '../types/index.ts';
 
-type NavigationTab = 'home' | 'integrations' | 'projects' | 'artifacts' | 'activity' | 'storage' | 'settings' | 'landing';
+type NavigationTab = 'home' | 'projects' | 'artifacts' | 'activity' | 'settings' | 'landing';
 
 interface MobileBottomNavProps {
   activeTab: NavigationTab;
@@ -47,7 +43,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
   user,
   onOpenAuth,
   onSignOut,
-  isAIConnected = true,
 }) => {
   const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
@@ -80,36 +75,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             <span className="text-[10px] mt-0.5 tracking-tight">Home</span>
           </button>
 
-          {/* Integrations */}
-          <button
-            onClick={() => handleTabClick('integrations')}
-            className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all cursor-pointer min-w-[56px] min-h-[44px] relative ${
-              activeTab === 'integrations'
-                ? 'text-[#19A974] font-semibold'
-                : 'text-[#6B6B6B] hover:text-[#111111]'
-            }`}
-          >
-            <div className={`p-1 rounded-lg transition-transform relative ${activeTab === 'integrations' ? 'scale-110 bg-[#E8F7F0]' : ''}`}>
-              <Puzzle className="w-5 h-5" />
-              {isAIConnected && (
-                <span className="absolute top-0 right-0 w-2 h-2 rounded-full bg-[#19A974] ring-2 ring-white" />
-              )}
-            </div>
-            <span className="text-[10px] mt-0.5 tracking-tight">Integrations</span>
-          </button>
-
-          {/* Quick Add Floating Button (Center) */}
-          <div className="relative -mt-4 px-1">
-            <button
-              onClick={onOpenUpload}
-              className="w-12 h-12 rounded-full bg-[#19A974] hover:bg-[#158f62] active:scale-95 text-white flex items-center justify-center shadow-lg shadow-[#19A974]/30 transition-all cursor-pointer ring-4 ring-white"
-              title="Add Artifact"
-              aria-label="Add Artifact"
-            >
-              <Plus className="w-6 h-6 stroke-[2.5]" />
-            </button>
-          </div>
-
           {/* Projects */}
           <button
             onClick={() => handleTabClick('projects')}
@@ -124,6 +89,18 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
             <span className="text-[10px] mt-0.5 tracking-tight">Projects</span>
           </button>
+
+          {/* Quick Add Floating Button (Center) */}
+          <div className="relative -mt-4 px-1">
+            <button
+              onClick={onOpenUpload}
+              className="w-12 h-12 rounded-full bg-[#19A974] hover:bg-[#158f62] active:scale-95 text-white flex items-center justify-center shadow-lg shadow-[#19A974]/30 transition-all cursor-pointer ring-4 ring-white"
+              title="Add Artifact"
+              aria-label="Add Artifact"
+            >
+              <Plus className="w-6 h-6 stroke-[2.5]" />
+            </button>
+          </div>
 
           {/* All Artifacts */}
           <button
@@ -144,12 +121,12 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
           <button
             onClick={() => setIsMoreSheetOpen(true)}
             className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl transition-all cursor-pointer min-w-[52px] min-h-[44px] ${
-              ['activity', 'storage', 'settings'].includes(activeTab) || isMoreSheetOpen
+              ['activity', 'settings'].includes(activeTab) || isMoreSheetOpen
                 ? 'text-[#19A974] font-semibold'
                 : 'text-[#6B6B6B] hover:text-[#111111]'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-transform ${['activity', 'storage', 'settings'].includes(activeTab) || isMoreSheetOpen ? 'scale-110 bg-[#E8F7F0]' : ''}`}>
+            <div className={`p-1 rounded-lg transition-transform ${['activity', 'settings'].includes(activeTab) || isMoreSheetOpen ? 'scale-110 bg-[#E8F7F0]' : ''}`}>
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <span className="text-[10px] mt-0.5 tracking-tight">More</span>
@@ -180,37 +157,39 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
             </div>
 
             {/* Quick Project Folders Grid */}
-            <div className="bg-white border border-[#E7E7E4] rounded-2xl p-3.5 space-y-2">
-              <div className="flex items-center justify-between text-xs font-semibold text-[#111111]">
-                <span>Project Folders</span>
-                <span className="text-[10px] font-mono text-neutral-500">{projects.length} folders</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {projects.map((proj) => (
-                  <button
-                    key={proj.id}
-                    onClick={() => {
-                      onSelectProject(proj.id);
-                      onSelectTab('projects');
-                      setIsMoreSheetOpen(false);
-                    }}
-                    className={`flex items-center gap-2 p-2 rounded-xl border text-left text-xs transition-colors cursor-pointer ${
-                      selectedProjectId === proj.id
-                        ? 'border-[#19A974] bg-[#E8F7F0] text-[#19A974] font-semibold'
-                        : 'border-[#E7E7E4] bg-neutral-50/50 hover:bg-neutral-100 text-[#111111]'
-                    }`}
-                  >
-                    <div
-                      className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0"
-                      style={{ backgroundColor: proj.color || '#19A974' }}
+            {projects.length > 0 && (
+              <div className="bg-white border border-[#E7E7E4] rounded-2xl p-3.5 space-y-2">
+                <div className="flex items-center justify-between text-xs font-semibold text-[#111111]">
+                  <span>Project Folders</span>
+                  <span className="text-[10px] font-mono text-neutral-500">{projects.length} folders</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  {projects.map((proj) => (
+                    <button
+                      key={proj.id}
+                      onClick={() => {
+                        onSelectProject(proj.id);
+                        onSelectTab('projects');
+                        setIsMoreSheetOpen(false);
+                      }}
+                      className={`flex items-center gap-2 p-2 rounded-xl border text-left text-xs transition-colors cursor-pointer ${
+                        selectedProjectId === proj.id
+                          ? 'border-[#19A974] bg-[#E8F7F0] text-[#19A974] font-semibold'
+                          : 'border-[#E7E7E4] bg-neutral-50/50 hover:bg-neutral-100 text-[#111111]'
+                      }`}
                     >
-                      <Folder className="w-3 h-3" />
-                    </div>
-                    <span className="truncate">{proj.name}</span>
-                  </button>
-                ))}
+                      <div
+                        className="w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0"
+                        style={{ backgroundColor: proj.color || '#19A974' }}
+                      >
+                        <Folder className="w-3 h-3" />
+                      </div>
+                      <span className="truncate">{proj.name}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Secondary Destinations */}
             <div className="bg-white border border-[#E7E7E4] rounded-2xl divide-y divide-[#E7E7E4] overflow-hidden text-xs">
@@ -233,24 +212,6 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               </button>
 
               <button
-                onClick={() => handleTabClick('storage')}
-                className={`w-full flex items-center justify-between p-3.5 hover:bg-neutral-50 transition-colors cursor-pointer ${
-                  activeTab === 'storage' ? 'bg-[#E8F7F0] text-[#19A974] font-semibold' : 'text-[#111111]'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-700">
-                    <HardDrive className="w-4 h-4" />
-                  </div>
-                  <div className="text-left">
-                    <div className="font-semibold">Cloud Storage Providers</div>
-                    <div className="text-[11px] text-[#6B6B6B]">Google Drive & Supabase Storage sync</div>
-                  </div>
-                </div>
-                <ChevronRight className="w-4 h-4 text-neutral-400" />
-              </button>
-
-              <button
                 onClick={() => handleTabClick('settings')}
                 className={`w-full flex items-center justify-between p-3.5 hover:bg-neutral-50 transition-colors cursor-pointer ${
                   activeTab === 'settings' ? 'bg-[#E8F7F0] text-[#19A974] font-semibold' : 'text-[#111111]'
@@ -262,7 +223,7 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   </div>
                   <div className="text-left">
                     <div className="font-semibold">Workspace Settings</div>
-                    <div className="text-[11px] text-[#6B6B6B]">PostgreSQL RLS & environment</div>
+                    <div className="text-[11px] text-[#6B6B6B]">Account and extension pairing</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
@@ -282,9 +243,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
                   <div className="text-left">
                     <div className="font-semibold flex items-center gap-1.5">
                       <span>Companion Extension</span>
-                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-emerald-50 text-emerald-700 font-semibold border border-emerald-200">v1.1</span>
                     </div>
-                    <div className="text-[11px] text-[#6B6B6B]">Capture deliverables from ChatGPT, Claude, Gemini</div>
+                    <div className="text-[11px] text-[#6B6B6B]">Pair browser extension</div>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-neutral-400" />
@@ -318,8 +278,8 @@ export const MobileBottomNav: React.FC<MobileBottomNavProps> = ({
               ) : (
                 <div className="flex items-center justify-between text-xs">
                   <div>
-                    <div className="font-semibold text-neutral-900">Guest Session Active</div>
-                    <div className="text-[11px] text-neutral-500">Sign in to save projects to Supabase</div>
+                    <div className="font-semibold text-neutral-900">Sign in to Orfilo</div>
+                    <div className="text-[11px] text-neutral-500">Access your workspace</div>
                   </div>
                   <button
                     onClick={() => {
