@@ -195,7 +195,138 @@ async function run() {
     assert.ok(dlBuffer.byteLength > 10000, `Downloaded zip should be >10KB, got ${dlBuffer.byteLength} bytes`);
     console.log(`   ✅ Test 4 Passed: Extension ZIP downloaded successfully (${dlBuffer.byteLength} bytes)\n`);
 
-    console.log('🎉 ALL SMART ORGANIZATION TESTS PASSED SUCCESSFULLY!');
+    // -------------------------------------------------------------------------
+    // TEST 5: Single Chat Multi-Topic Scenario (User's Exact Benchmark)
+    // Turn 1: "generate habeshan model only face"
+    // Turn 2 (same chat URL): "another project ui" -> Topic shift! Must create separate project!
+    // Turn 3 (same chat URL): "habeshan model traditional dress" -> Must correlate back to Habeshan!
+    // -------------------------------------------------------------------------
+    console.log('--- 5. Testing Single Chat Multi-Topic Scenario (User Benchmark) ---');
+    const multiTopicChatUrl = `https://chatgpt.com/c/user-scenario-${Date.now()}`;
+    const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+    // Turn 1
+    console.log('   Turn 1: "generate habeshan model only face"');
+    const resH1 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'DALL·E 2026-10-11.png',
+        mime_type: 'image/png',
+        extension: 'png',
+        size_bytes: 85,
+        source_name: 'ChatGPT',
+        source_url: multiTopicChatUrl,
+        conversation_title: 'ChatGPT',
+        context_prompt: 'generate habeshan model only face',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resH1.status, 201);
+    const jsonH1 = await resH1.json();
+    const itemH1 = jsonH1.data;
+    const orgH1 = jsonH1.organization;
+    createdArtifactIds.push(itemH1.id);
+    const habeshanProjectId = orgH1.project_id;
+
+    console.log(`     Display Name: "${itemH1.display_name}"`);
+    console.log(`     Project: "${orgH1.project_name}"`);
+    console.log(`     Provider Path: "${itemH1.provider_path}"`);
+    console.log(`     Thumbnail URL: "${itemH1.metadata?.thumbnail_url}"`);
+
+    assert.strictEqual(itemH1.display_name, 'Habeshan Model Face Only', 'Grammar reordering & short clean name failed');
+    assert.strictEqual(orgH1.project_name, 'Habeshan Model Face Only', 'Should name project after deliverable');
+    assert.ok(itemH1.provider_path.startsWith('ChatGPT / Habeshan Model Face Only / Illustrations / habeshan-model-face-only.png'), 'Provider path mismatch');
+    assert.ok(itemH1.metadata?.thumbnail_url, 'Should have stored thumbnail_url');
+
+    // Verify thumbnail is accessible via HTTP
+    const thumbRes = await fetch(`${BASE_URL}${itemH1.metadata.thumbnail_url}`);
+    assert.strictEqual(thumbRes.status, 200, 'Thumbnail should be accessible over HTTP static server');
+
+    // Turn 2: Same Chat URL, but completely different topic: "another project ui"
+    console.log('\n   Turn 2 (Same Chat URL): "another project ui"');
+    const resH2 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'screenshot-2.png',
+        mime_type: 'image/png',
+        extension: 'png',
+        size_bytes: 85,
+        source_name: 'ChatGPT',
+        source_url: multiTopicChatUrl,
+        conversation_title: 'ChatGPT',
+        context_prompt: 'create another project ui mockup',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resH2.status, 201);
+    const jsonH2 = await resH2.json();
+    const itemH2 = jsonH2.data;
+    const orgH2 = jsonH2.organization;
+    createdArtifactIds.push(itemH2.id);
+    const uiProjectId = orgH2.project_id;
+
+    console.log(`     Display Name: "${itemH2.display_name}"`);
+    console.log(`     Project: "${orgH2.project_name}" (Created: ${orgH2.project_created})`);
+    console.log(`     Provider Path: "${itemH2.provider_path}"`);
+
+    assert.notStrictEqual(uiProjectId, habeshanProjectId, 'Turn 2 must NOT be put into Habeshan Model project!');
+    assert.ok(
+      orgH2.project_name === 'UI Mockup' || orgH2.project_name === 'Project UI Mockup',
+      `Expected UI Mockup or Project UI Mockup, got ${orgH2.project_name}`
+    );
+    assert.ok(
+      itemH2.provider_path.includes('UI Mockup') && itemH2.provider_path.includes('/ UI Mockups /'),
+      `Provider path should contain UI Mockup folder, got ${itemH2.provider_path}`
+    );
+
+    // Turn 3: Same Chat URL, returning to habeshan model: "habeshan model traditional dress"
+    console.log('\n   Turn 3 (Same Chat URL): "habeshan model traditional dress"');
+    const resH3 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'image-3.png',
+        mime_type: 'image/png',
+        extension: 'png',
+        size_bytes: 85,
+        source_name: 'ChatGPT',
+        source_url: multiTopicChatUrl,
+        conversation_title: 'ChatGPT',
+        context_prompt: 'habeshan model traditional dress',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resH3.status, 201);
+    const jsonH3 = await resH3.json();
+    const itemH3 = jsonH3.data;
+    const orgH3 = jsonH3.organization;
+    createdArtifactIds.push(itemH3.id);
+
+    console.log(`     Display Name: "${itemH3.display_name}"`);
+    console.log(`     Project: "${orgH3.project_name}" (Reused: ${!orgH3.project_created})`);
+    console.log(`     Provider Path: "${itemH3.provider_path}"`);
+
+    assert.strictEqual(orgH3.project_id, habeshanProjectId, 'Turn 3 must correlate BACK to Habeshan Model project!');
+    assert.strictEqual(orgH3.project_created, false, 'Turn 3 must reuse existing Habeshan project, not create new');
+
+    // Cleanup extra projects created in Test 5
+    if (habeshanProjectId) await supabase.from('projects').delete().eq('id', habeshanProjectId);
+    if (uiProjectId) await supabase.from('projects').delete().eq('id', uiProjectId);
+
+    console.log('\n   ✅ Test 5 Passed: Single chat topic disambiguation verified successfully!\n');
+
+    console.log('🎉 ALL SMART ORGANIZATION & MULTI-TOPIC TESTS PASSED SUCCESSFULLY!');
   } finally {
     // Cleanup test artifacts
     for (const artId of createdArtifactIds) {

@@ -53,42 +53,47 @@ export function cleanPromptToTitle(text: string): string {
   if (!text) return '';
   let cleaned = text.trim();
 
-  // Strip Markdown code / bold / links / asterisks
+  // 1. Strip URLs, code wrappers, asterisks, brackets
+  cleaned = cleaned.replace(/https?:\/\/\S+/g, ' ');
   cleaned = cleaned.replace(/[*_#`[\]()]/g, ' ');
 
-  // Strip conversational prefixes
+  // 2. Strip conversational prefixes & generation instructions
   const prefixRegex =
-    /^(create|generate|make|draw|design|build|render|show|give me|can you (please )?(create|generate|make|draw|design)|here is (a|an)|a photo of|an image of|a render of|a 3d render of|illustration of|dall[-e\s]+generated:?|screenshot of|mockup of|wireframe of)\s+/i;
+    /^(can you (please )?(create|generate|make|draw|design)|please (create|generate|make|draw|design)|create|generate|make|draw|design|build|render|show me|give me|here is (a|an)?|i want (a|an)?|a photo of|an image of|a picture of|a 3d render of|illustration of|dall[-e\s]+generated:?|dall-e:?|screenshot of|mockup of|wireframe of)\s+/i;
   cleaned = cleaned.replace(prefixRegex, '');
 
-  // Strip leading articles (a, an, the)
-  cleaned = cleaned.replace(/^(a|an|the)\s+/i, '');
+  // 3. Strip quality hype filler tags
+  cleaned = cleaned.replace(/\b(photorealistic|hyperrealistic|ultra realistic|high resolution|4k|8k|hd|cinematic lighting|octane render|trending on artstation|unreal engine|studio quality|highly detailed)\b/gi, ' ');
 
-  // Strip leading quotes or punctuation
+  // 4. Strip leading articles and conversational transition words (a, an, the, another, new, next, one more, some)
+  cleaned = cleaned.replace(/^(a|an|the|another|new|next|one more|some)\s+/i, '');
+
+  // 5. Special grammar cleanup: e.g. "only face" -> "face only"
+  cleaned = cleaned.replace(/\bonly\s+([a-zA-Z0-9]+)\b/gi, '$1 only');
+
+  // 6. Strip leading/trailing punctuation or quotes
   cleaned = cleaned.replace(/^["'“‘\-:\s]+/, '').replace(/["'”’]+$/, '');
 
-  // Take the first clause up to punctuation or line break
+  // 7. Take first sentence or clause
   const firstSentence = cleaned.split(/[\n.;?!]/)[0] || '';
   let candidate = firstSentence.trim();
-
   if (candidate.length === 0) candidate = cleaned;
 
-  // Truncate cleanly at word boundary up to ~45 characters
-  if (candidate.length > 45) {
-    const truncated = candidate.slice(0, 45);
-    const lastSpace = truncated.lastIndexOf(' ');
-    candidate = lastSpace > 20 ? truncated.slice(0, lastSpace) : truncated;
-  }
-
-  // Strip trailing prepositions, conjunctions, or punctuation
+  // 8. Strip trailing prepositions/conjunctions
   candidate = candidate.replace(/\s+(with|for|and|or|in|on|at|to|a|an|the|of|by|from|using|featuring)$/i, '');
   candidate = candidate.replace(/[-_–—:,]+$/, '').trim();
 
-  // Convert to Title Case
-  const words = candidate.split(/\s+/).filter(Boolean);
+  // 9. Limit to max 4 to 5 words for clean, punchy, understandable naming
+  const allWords = candidate.split(/\s+/).filter(Boolean);
+  const words = allWords.slice(0, 5);
+
+  // 10. Title Case formatting with acronym preservation
   const titled = words
     .map((w, idx) => {
       const lower = w.toLowerCase();
+      if (['ui', 'ux', 'api', 'sql', 'css', 'html', 'js', 'ts', 'prd', 'ai'].includes(lower)) {
+        return lower.toUpperCase();
+      }
       if (idx > 0 && ['and', 'or', 'for', 'to', 'in', 'on', 'at', 'a', 'an', 'the', 'of', 'with', 'by'].includes(lower)) {
         return lower;
       }
@@ -187,40 +192,53 @@ export async function organizeDeliverable(
     }
   }
 
-  // B. Correlate by conversation source_url across existing artifacts
+  // B. Correlate by conversation source_url across existing artifacts ONLY IF semantically related!
+  const currentPromptOrAlt = ctx.contextPrompt || ctx.altText || '';
+  let priorArtifactsInSession: any[] = [];
+
   if (!resolvedProjectId && ctx.sourceUrl) {
     try {
-      const { data: matchedArtifact } = await db
+      const { data: matchedArtifacts } = await db
         .from('artifacts')
         .select('project_id, project:projects(id, name)')
         .eq('user_id', ctx.userId)
         .filter('metadata->>source_url', 'eq', ctx.sourceUrl)
         .not('project_id', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
 
-      if (matchedArtifact && matchedArtifact.project_id) {
-        resolvedProjectId = matchedArtifact.project_id;
-        // Project name might come from joined object or require quick lookup
-        const projName = (matchedArtifact.project as any)?.name;
-        if (projName) {
-          resolvedProjectName = projName;
-        } else {
-          const { data: p } = await db
-            .from('projects')
-            .select('name')
-            .eq('id', resolvedProjectId)
-            .maybeSingle();
-          resolvedProjectName = p?.name || 'Project Deliverables';
+      if (matchedArtifacts && matchedArtifacts.length > 0) {
+        priorArtifactsInSession = matchedArtifacts;
+
+        // Check each existing project in this conversation to find a topic match
+        for (const matched of matchedArtifacts) {
+          if (!matched.project_id) continue;
+          let projName = (matched.project as any)?.name;
+          if (!projName) {
+            const { data: p } = await db
+              .from('projects')
+              .select('name')
+              .eq('id', matched.project_id)
+              .maybeSingle();
+            projName = p?.name || '';
+          }
+
+          if (isRelatedToProject(projName, currentPromptOrAlt, displayName)) {
+            resolvedProjectId = matched.project_id;
+            resolvedProjectName = projName;
+            break;
+          }
         }
       }
     } catch (_) {}
   }
 
-  // C. Match by conversation title against existing projects
+  // C. Match by conversation title against existing projects (only if relevant to current deliverable)
   const cleanConvTitle = sanitizeConversationTitle(ctx.conversationTitle);
-  if (!resolvedProjectId && cleanConvTitle) {
+  const convTitleIsRelated =
+    cleanConvTitle && isRelatedToProject(cleanConvTitle, currentPromptOrAlt, displayName);
+
+  if (!resolvedProjectId && convTitleIsRelated) {
     const { data: existingProjects } = await db
       .from('projects')
       .select('id, name')
@@ -243,11 +261,16 @@ export async function organizeDeliverable(
 
   // D. If still no project, AUTO-CREATE a dedicated project for this deliverable
   if (!resolvedProjectId) {
+    // If there were no prior artifacts in this chat session, the clean conversation title is authoritative
+    // (e.g. chat was created as "Fintech Mobile App Redesign").
+    // If prior artifacts exist and this deliverable is a new topic, use the deliverable name.
+    const isFirstInSession = priorArtifactsInSession.length === 0;
+    const shouldUseConvTitle = Boolean(cleanConvTitle && (isFirstInSession || convTitleIsRelated));
+
     const rawProjectName =
-      cleanConvTitle ||
-      (displayName.length > 3 && displayName.length < 35
-        ? displayName
-        : `${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} Deliverables`);
+      (shouldUseConvTitle ? cleanConvTitle : '') ||
+      (displayName.length >= 2 && displayName.length <= 40 ? displayName : '') ||
+      `${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} Workspace`;
     const newProjectName = sanitizeProjectFolderName(rawProjectName);
 
     const { icon, color } = pickProjectTheme(ctx.mimeType, ext, newProjectName);
@@ -380,6 +403,73 @@ export function sanitizeProjectFolderName(projectName: string): string {
   return clean || projectName.trim() || 'Deliverables';
 }
 
+/**
+ * Extracts significant topic keywords from a text string, excluding stopwords.
+ */
+export function extractTopicKeywords(text: string): string[] {
+  if (!text) return [];
+  const stopwords = new Set([
+    'a', 'an', 'the', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+    'and', 'or', 'but', 'is', 'are', 'was', 'were', 'it', 'its', 'this', 'that',
+    'create', 'generate', 'make', 'draw', 'design', 'render', 'show', 'please',
+    'image', 'photo', 'picture', 'illustration', 'deliverable', 'file',
+    'only', 'new', 'some', 'any', 'my', 'your', 'our', 'another', 'first', 'second'
+  ]);
+
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !stopwords.has(w));
+}
+
+const SYNONYM_CLUSTERS: string[][] = [
+  ['app', 'ui', 'ux', 'dashboard', 'interface', 'screen', 'mockup', 'frontend', 'web', 'page', 'design', 'redesign'],
+  ['fintech', 'banking', 'bank', 'finance', 'financial', 'payment', 'card', 'crypto', 'wallet', 'money', 'balance'],
+  ['model', 'fashion', 'clothing', 'dress', 'portrait', 'face', 'character', 'habeshan', 'habesha'],
+  ['auth', 'authentication', 'login', 'signup', 'register', 'password', 'oauth', 'token'],
+  ['database', 'sql', 'postgres', 'schema', 'table', 'migration', 'backend', 'api'],
+];
+
+/**
+ * Checks if a new deliverable is semantically related to an existing project.
+ */
+export function isRelatedToProject(
+  projectName: string,
+  newPrompt: string,
+  newDisplayName: string
+): boolean {
+  if (!projectName) return false;
+  const projectKeywords = extractTopicKeywords(projectName);
+  const newKeywords = new Set([
+    ...extractTopicKeywords(newPrompt),
+    ...extractTopicKeywords(newDisplayName),
+  ]);
+
+  if (projectKeywords.length === 0 || newKeywords.size === 0) return false;
+
+  // 1. Direct keyword overlap
+  for (const kw of projectKeywords) {
+    if (newKeywords.has(kw)) return true;
+  }
+
+  // 2. Domain synonym cluster matching
+  for (const cluster of SYNONYM_CLUSTERS) {
+    const hasProjKw = projectKeywords.some((pk) => cluster.includes(pk));
+    const hasNewKw = [...newKeywords].some((nk) => cluster.includes(nk));
+    if (hasProjKw && hasNewKw) {
+      return true;
+    }
+  }
+
+  // 3. Substring matches
+  const lowerProj = projectName.toLowerCase();
+  const lowerPrompt = (newPrompt + ' ' + newDisplayName).toLowerCase();
+  if (lowerPrompt.includes(lowerProj) || lowerProj.includes(lowerPrompt)) return true;
+
+  return false;
+}
+
 function isGenericConversationTitle(title?: string): boolean {
   if (!title) return true;
   const t = title.trim().toLowerCase();
@@ -461,13 +551,13 @@ function determineFolderHierarchy(
 
   // 1. Images & Visuals
   if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(ext)) {
-    if (/(logo|icon|badge|symbol|avatar|favicon|brand)/i.test(combined)) {
+    if (/\b(logo|icon|badge|symbol|avatar|favicon|brand)\b/i.test(combined)) {
       return { category: 'Assets', subfolder: 'Brand & Icons' };
     }
-    if (/(ui|mockup|wireframe|screen|dashboard|interface|landing|layout|hero|modal|view)/i.test(combined)) {
+    if (/\b(ui|mockup|wireframe|screen|dashboard|interface|landing|layout|hero|modal|view)\b/i.test(combined)) {
       return { category: 'Visuals', subfolder: 'UI Mockups' };
     }
-    if (/(diagram|flowchart|architecture|chart|graph|schema|flow|er|sequence|uml)/i.test(combined)) {
+    if (/\b(diagram|flowchart|architecture|chart|graph|schema|flow|sequence|uml|erd|er\s+diagram)\b/i.test(combined)) {
       return { category: 'Visuals', subfolder: 'Diagrams' };
     }
     return { category: 'Visuals', subfolder: 'Illustrations' };

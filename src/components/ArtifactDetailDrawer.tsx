@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Download, Trash2, Edit2, FolderInput, Check, Info, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, HardDrive } from 'lucide-react';
+import { X, Download, Trash2, Edit2, FolderInput, Check, Info, FileText, Image, Code, FileQuestion, ArrowRight, Loader2, AlertCircle, HardDrive, ExternalLink } from 'lucide-react';
 import { Artifact, Project } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
 
@@ -100,17 +100,46 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
   };
 
   const renderPreview = () => {
-    if (['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(artifact.extension)) {
+    if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(artifact.extension.toLowerCase())) {
+      const meta = (artifact.metadata || {}) as Record<string, any>;
+      const imgSrc: string =
+        (typeof meta.thumbnail_url === 'string' && meta.thumbnail_url) ||
+        (meta.content_base64
+          ? `data:${artifact.mime_type || 'image/png'};base64,${meta.content_base64}`
+          : `/storage/artifacts/${artifact.id}.${artifact.extension}`);
+
       return (
-        <div className="w-full h-48 bg-gradient-to-br from-neutral-100 to-neutral-200 rounded-xl flex items-center justify-center border border-[#E7E7E4] overflow-hidden relative group">
-          <div className="absolute inset-0 flex items-center justify-center opacity-30">
-            <Image className="w-20 h-20 text-neutral-400" />
+        <div className="w-full rounded-2xl overflow-hidden border border-[#E7E7E4] bg-neutral-900/5 relative group shadow-xs">
+          <div className="max-h-80 w-full flex items-center justify-center p-3 bg-neutral-100">
+            <img
+              src={imgSrc}
+              alt={artifact.display_name}
+              className="max-h-72 max-w-full rounded-lg object-contain shadow-xs"
+              onError={(e) => {
+                const target = e.target as HTMLElement;
+                target.style.display = 'none';
+              }}
+            />
           </div>
-          <div className="relative z-10 flex flex-col items-center text-center p-4">
-            <span className="font-mono text-xs uppercase px-2 py-0.5 rounded bg-black/60 text-white backdrop-blur-xs mb-1">
-              {artifact.extension} Preview
-            </span>
-            <span className="text-xs text-neutral-600 font-medium">{artifact.display_name}</span>
+          <div className="p-3 bg-white border-t border-[#E7E7E4] flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-neutral-100 text-neutral-800">
+                {artifact.extension}
+              </span>
+              <span className="text-[11px] text-neutral-500 font-mono">
+                {formatBytes(artifact.size_bytes)}
+              </span>
+            </div>
+            <a
+              href={imgSrc}
+              target="_blank"
+              rel="noreferrer"
+              download={artifact.original_name}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#19A974] hover:bg-[#158f62] rounded-xl transition-colors cursor-pointer shadow-2xs"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Open Full Size</span>
+            </a>
           </div>
         </div>
       );

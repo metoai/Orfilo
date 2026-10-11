@@ -157,6 +157,7 @@ export async function createServer() {
 
   app.use(express.json({ limit: '15mb' }));
   app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+  app.use('/storage', express.static(path.resolve(__dirname, 'public', 'storage')));
 
   // Logging
   app.use((req: Request, _res: Response, next: NextFunction) => {
@@ -442,6 +443,7 @@ export async function createServer() {
       context_prompt,
       alt_text,
       ai_confidence,
+      content_base64,
       metadata = {},
     } = body;
 
@@ -517,6 +519,37 @@ export async function createServer() {
     if (error) {
       res.status(500).json({ error: error.message });
       return;
+    }
+
+    // Save binary content to disk for preview rendering
+    if (content_base64 && typeof content_base64 === 'string') {
+      try {
+        const base64Data = content_base64.replace(/^data:[^;]+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const storageDir = path.resolve(__dirname, 'public', 'storage', 'artifacts');
+        if (!fs.existsSync(storageDir)) {
+          fs.mkdirSync(storageDir, { recursive: true });
+        }
+        const fileName = `${data.id}.${orgResult.extension}`;
+        const filePath = path.join(storageDir, fileName);
+        fs.writeFileSync(filePath, buffer);
+
+        const localThumbnailUrl = `/storage/artifacts/${fileName}`;
+        const updatedMetadata = {
+          ...finalMetadata,
+          thumbnail_url: localThumbnailUrl,
+          content_base64: base64Data.length < 1500000 ? base64Data : undefined,
+        };
+
+        await db
+          .from('artifacts')
+          .update({ metadata: updatedMetadata })
+          .eq('id', data.id);
+
+        data.metadata = updatedMetadata;
+      } catch (writeErr) {
+        console.warn('[Server] Failed to write binary artifact file:', writeErr);
+      }
     }
 
     // Log file_event
@@ -619,6 +652,38 @@ export async function createServer() {
       return;
     }
     res.json({ message: 'Artifact deleted successfully' });
+  });
+
+  // GET /api/v1/artifacts/:id/file — serve raw binary file / image
+  app.get('/api/v1/artifacts/:id/file', async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const db = getDb(req);
+    const { data: artifact } = await db
+      .from('artifacts')
+      .select('id, extension, mime_type, metadata')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!artifact) {
+      res.status(404).json({ error: 'Artifact not found' });
+      return;
+    }
+
+    const filePath = path.resolve(__dirname, 'public', 'storage', 'artifacts', `${id}.${artifact.extension}`);
+    if (fs.existsSync(filePath)) {
+      res.setHeader('Content-Type', artifact.mime_type || 'application/octet-stream');
+      res.sendFile(filePath);
+      return;
+    }
+
+    if (artifact.metadata?.content_base64) {
+      const buffer = Buffer.from(artifact.metadata.content_base64, 'base64');
+      res.setHeader('Content-Type', artifact.mime_type || 'application/octet-stream');
+      res.send(buffer);
+      return;
+    }
+
+    res.status(404).json({ error: 'Artifact file not found' });
   });
 
   // --------------------------------------------------------------------------
