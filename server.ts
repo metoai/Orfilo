@@ -594,13 +594,8 @@ export async function createServer() {
     const plainToken = 'orf_' + crypto.randomBytes(32).toString('hex');
     const tokenHash = crypto.createHash('sha256').update(plainToken).digest('hex');
 
-    const adminClient = createServerClient();
-    if (!adminClient) {
-      res.status(500).json({ error: 'Database service is not configured' });
-      return;
-    }
-
-    const { data, error } = await adminClient
+    const db = getDb(req);
+    const { data, error } = await db
       .from('integration_connections')
       .insert({
         user_id: req.user.id,
