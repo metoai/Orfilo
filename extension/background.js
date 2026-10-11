@@ -195,14 +195,13 @@ async function ingestArtifact({
   const orgInfo = responseData?.organization || {};
 
   const finalTitle = savedItem.display_name || filename;
-  const projectName = orgInfo.project_name || savedItem.project?.name || 'Project';
   const folderPath = orgInfo.provider_path || savedItem.provider_path || '';
 
   await recordSuccessfulCapture(finalTitle);
 
   showNotification(
     'Saved to Orfilo',
-    `"${finalTitle}" organized into [${projectName}] (${orgInfo.category || 'Assets'} / ${orgInfo.subfolder || 'General'})`
+    folderPath ? `"${finalTitle}" saved to:\n${folderPath}` : `"${finalTitle}" saved successfully.`
   );
 
   return responseData;

@@ -84,9 +84,12 @@ async function run() {
     assert.strictEqual(org1.project_name, 'Fintech Mobile App Redesign');
     assert.ok(!item1.display_name.includes('image-1791748063'), 'Should NOT be generic image name');
     assert.ok(item1.display_name.toLowerCase().includes('dark mode') || item1.display_name.toLowerCase().includes('banking'), 'Should have semantic name');
-    assert.strictEqual(org1.category, 'Visuals');
     assert.strictEqual(org1.subfolder, 'UI Mockups');
-    console.log('   ✅ Test 1 Passed: Renamed, Project Auto-Created, Placed in UI Mockups\n');
+    assert.ok(
+      item1.provider_path.startsWith('ChatGPT / Fintech Mobile App Redesign / UI Mockups /'),
+      `Provider path should be 'ChatGPT / Fintech Mobile App Redesign / UI Mockups / ...', got '${item1.provider_path}'`
+    );
+    console.log('   ✅ Test 1 Passed: Renamed, Project Auto-Created, Placed in ChatGPT / Project / UI Mockups\n');
 
     // -------------------------------------------------------------------------
     // TEST 2: Capture 2 (Same Conversation URL -> Correlate into Existing Project!)
@@ -130,9 +133,12 @@ async function run() {
     assert.strictEqual(org2.project_created, false, 'Should REUSE existing project, not create duplicate');
     assert.strictEqual(item2.project_id, firstProjectId, 'Should correlate to the EXACT same project ID');
     assert.ok(item2.display_name.toLowerCase().includes('titanium') || item2.display_name.toLowerCase().includes('debit card'), 'Should have semantic icon name');
-    assert.strictEqual(org2.category, 'Assets');
     assert.strictEqual(org2.subfolder, 'Brand & Icons');
-    console.log('   ✅ Test 2 Passed: Correlated to existing project and placed in Brand & Icons\n');
+    assert.ok(
+      item2.provider_path.startsWith('ChatGPT / Fintech Mobile App Redesign / Brand & Icons /'),
+      `Provider path should be 'ChatGPT / Fintech Mobile App Redesign / Brand & Icons / ...', got '${item2.provider_path}'`
+    );
+    console.log('   ✅ Test 2 Passed: Correlated to existing project and placed in ChatGPT / Project / Brand & Icons\n');
 
     // -------------------------------------------------------------------------
     // TEST 3: Capture 3 (Code Component from Claude)
@@ -171,9 +177,23 @@ async function run() {
       await supabase.from('projects').delete().eq('id', org3.project_id);
     }
 
-    assert.strictEqual(org3.category, 'Code');
     assert.strictEqual(org3.subfolder, 'Components');
-    console.log('   ✅ Test 3 Passed: Code deliverable placed in Code / Components\n');
+    assert.ok(
+      item3.provider_path.startsWith('Claude / Auth Form Component in React / Components /'),
+      `Provider path should be 'Claude / Auth Form Component in React / Components / ...', got '${item3.provider_path}'`
+    );
+    console.log('   ✅ Test 3 Passed: Code deliverable placed in Claude / Project / Components\n');
+
+    // -------------------------------------------------------------------------
+    // TEST 4: Extension Download Endpoint
+    // -------------------------------------------------------------------------
+    console.log('--- 4. Testing Extension Download Endpoint ---');
+    const dlRes = await fetch(`${BASE_URL}/api/v1/extension/download`);
+    assert.strictEqual(dlRes.status, 200, `Expected 200 from download endpoint, got ${dlRes.status}`);
+    assert.strictEqual(dlRes.headers.get('content-type'), 'application/zip');
+    const dlBuffer = await dlRes.arrayBuffer();
+    assert.ok(dlBuffer.byteLength > 10000, `Downloaded zip should be >10KB, got ${dlBuffer.byteLength} bytes`);
+    console.log(`   ✅ Test 4 Passed: Extension ZIP downloaded successfully (${dlBuffer.byteLength} bytes)\n`);
 
     console.log('🎉 ALL SMART ORGANIZATION TESTS PASSED SUCCESSFULLY!');
   } finally {

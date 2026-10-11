@@ -2,6 +2,8 @@ import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
+import fs from 'fs';
+import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
@@ -688,6 +690,27 @@ export async function createServer() {
       user_email: req.user?.email || '',
       user_id: req.user?.id,
     });
+  });
+
+  // GET /api/v1/extension/download — direct download for Orfilo Chrome Extension ZIP
+  app.get('/api/v1/extension/download', (_req: Request, res: Response) => {
+    const zipPath = path.resolve(__dirname, 'public', 'orfilo-extension.zip');
+    if (!fs.existsSync(zipPath)) {
+      const extDir = path.resolve(__dirname, 'extension');
+      if (fs.existsSync(extDir)) {
+        try {
+          execSync(`cd "${extDir}" && zip -r "${zipPath}" . -x "*.git*"`, { stdio: 'ignore' });
+        } catch (_) {}
+      }
+    }
+
+    if (fs.existsSync(zipPath)) {
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', 'attachment; filename="orfilo-extension.zip"');
+      res.sendFile(zipPath);
+      return;
+    }
+    res.status(404).json({ error: 'Extension download package not found' });
   });
 
   // --------------------------------------------------------------------------

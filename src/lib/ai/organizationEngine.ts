@@ -243,11 +243,12 @@ export async function organizeDeliverable(
 
   // D. If still no project, AUTO-CREATE a dedicated project for this deliverable
   if (!resolvedProjectId) {
-    const newProjectName =
+    const rawProjectName =
       cleanConvTitle ||
       (displayName.length > 3 && displayName.length < 35
         ? displayName
-        : `${ctx.sourceName || 'AI'} Deliverables`);
+        : `${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} Deliverables`);
+    const newProjectName = sanitizeProjectFolderName(rawProjectName);
 
     const { icon, color } = pickProjectTheme(ctx.mimeType, ext, newProjectName);
 
@@ -256,7 +257,7 @@ export async function organizeDeliverable(
       .insert({
         user_id: ctx.userId,
         name: newProjectName,
-        description: `Deliverables captured from ${ctx.sourceName || 'AI'} conversation`,
+        description: `Deliverables captured from ${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} conversation`,
         icon,
         color,
       })
@@ -293,7 +294,7 @@ export async function organizeDeliverable(
             action: 'auto_create_project',
             project_name: newProjectName,
             source_url: ctx.sourceUrl,
-            source_name: ctx.sourceName,
+            source_name: normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl),
           },
         })
         .then();
@@ -307,7 +308,11 @@ export async function organizeDeliverable(
 
   // ---------------------------------------------------------------------------
   // 3. FOLDER & SUBFOLDER HIERARCHY (provider_path)
+  // Format: <AI Tool> / <Project Name> / <Subfolder if needed> / <Filename>
   // ---------------------------------------------------------------------------
+  const aiFolder = normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl);
+  const cleanProjectFolder = sanitizeProjectFolderName(resolvedProjectName);
+
   const { category, subfolder } = determineFolderHierarchy(
     ctx.mimeType,
     ext,
@@ -315,7 +320,11 @@ export async function organizeDeliverable(
     ctx.contextPrompt || ctx.altText || ''
   );
 
-  const providerPath = ctx.explicitProviderPath || `${resolvedProjectName} / ${category} / ${subfolder} / ${finalFilename}`;
+  const providerPath =
+    ctx.explicitProviderPath ||
+    (subfolder
+      ? `${aiFolder} / ${cleanProjectFolder} / ${subfolder} / ${finalFilename}`
+      : `${aiFolder} / ${cleanProjectFolder} / ${finalFilename}`);
 
   const executionTimeMs = Date.now() - startTime;
 
@@ -332,7 +341,7 @@ export async function organizeDeliverable(
     description:
       ctx.contextPrompt && ctx.contextPrompt.length > 5
         ? ctx.contextPrompt.slice(0, 200)
-        : `Organized into ${category} / ${subfolder} by Orfilo`,
+        : `Organized into ${aiFolder} / ${cleanProjectFolder} (${subfolder}) by Orfilo`,
     aiConfidence: 0.94,
     executionTimeMs,
   };
@@ -341,6 +350,35 @@ export async function organizeDeliverable(
 // -----------------------------------------------------------------------------
 // INTERNAL HELPERS
 // -----------------------------------------------------------------------------
+
+export function normalizeAiFolderName(sourceName?: string, sourceUrl?: string): string {
+  const url = (sourceUrl || '').toLowerCase();
+  if (url.includes('chatgpt.com') || url.includes('chat.openai.com')) return 'ChatGPT';
+  if (url.includes('claude.ai')) return 'Claude';
+  if (url.includes('gemini.google.com')) return 'Gemini';
+  if (url.includes('v0.dev')) return 'v0';
+  if (url.includes('midjourney.com')) return 'Midjourney';
+  if (url.includes('cursor')) return 'Cursor';
+
+  const name = (sourceName || '').trim();
+  const lower = name.toLowerCase();
+  if (lower.includes('chatgpt') || lower.includes('openai')) return 'ChatGPT';
+  if (lower.includes('claude') || lower.includes('anthropic')) return 'Claude';
+  if (lower.includes('gemini') || lower.includes('google')) return 'Gemini';
+  if (lower.includes('midjourney')) return 'Midjourney';
+  if (lower === 'v0') return 'v0';
+  if (lower.includes('cursor')) return 'Cursor';
+
+  return name || 'ChatGPT';
+}
+
+export function sanitizeProjectFolderName(projectName: string): string {
+  let clean = (projectName || '').trim();
+  clean = clean.replace(/^(the\s+)?project[:\s\-_]*/i, '');
+  clean = clean.replace(/[:\s\-_]*project$/i, '');
+  clean = clean.trim();
+  return clean || projectName.trim() || 'Deliverables';
+}
 
 function isGenericConversationTitle(title?: string): boolean {
   if (!title) return true;

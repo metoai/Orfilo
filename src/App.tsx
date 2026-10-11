@@ -36,6 +36,7 @@ import {
   CheckCircle,
   HelpCircle,
   LogIn,
+  Download,
 } from 'lucide-react';
 import { OrfiloBrand, OrfiloIcon } from './components/OrfiloBrand.tsx';
 import { UploadArtifactModal } from './components/UploadArtifactModal.tsx';
@@ -734,13 +735,16 @@ export default function App() {
               {/* Chrome Extension Companion */}
               <button
                 onClick={() => setIsExtensionPairModalOpen(true)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer text-[#111111] hover:bg-neutral-100 group border border-neutral-200/60 my-1"
-                title="Pair Chrome Extension Companion"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer text-[#111111] hover:bg-neutral-100 group border border-neutral-200/80 bg-white hover:border-[#19A974]/40 my-1 shadow-2xs"
+                title="Download and install Orfilo Chrome Extension"
               >
-                <div className="flex items-center gap-3">
-                  <Zap className="w-4 h-4 text-[#19A974]" />
-                  <span>Extension</span>
+                <div className="flex items-center gap-2.5">
+                  <Download className="w-4 h-4 text-[#19A974]" />
+                  <span className="font-semibold text-xs">Extension</span>
                 </div>
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#E8F7F0] text-[#19A974] group-hover:bg-[#19A974] group-hover:text-white transition-colors">
+                  Install
+                </span>
               </button>
 
               <button
