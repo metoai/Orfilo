@@ -170,6 +170,34 @@
     }
   }
 
+  function extractSurroundingContext(element) {
+    let promptText = '';
+    try {
+      const turn = element.closest('[data-message-author-role]') || element.closest('article') || element.closest('.agent-turn') || element.closest('.group');
+      if (turn) {
+        let prev = turn.previousElementSibling;
+        while (prev && !promptText) {
+          const text = (prev.innerText || prev.textContent || '').trim();
+          if (text.length > 5 && text.length < 1500) {
+            promptText = text.slice(0, 400);
+            break;
+          }
+          prev = prev.previousElementSibling;
+        }
+      }
+    } catch (_) {}
+
+    const conversationTitle = (document.title || '')
+      .replace(/\s*[-–|]\s*(ChatGPT|Claude|Gemini|v0|Midjourney).*$/i, '')
+      .trim();
+
+    return {
+      conversationTitle: conversationTitle || 'AI Deliverables',
+      promptText: promptText || '',
+      sourceUrl: window.location.href,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // 4. ATTACH TO CODE BLOCKS
   // ---------------------------------------------------------------------------
@@ -191,12 +219,13 @@
       e.preventDefault();
 
       const codeElement = pre.querySelector('code') || pre;
-      // Get the full raw text content without truncation
       const codeContent = codeElement.innerText || codeElement.textContent || '';
       if (!codeContent.trim()) return;
 
       const { lang, ext } = detectCodeLanguage(pre);
       setButtonState(btn, 'saving');
+
+      const ctx = extractSurroundingContext(pre);
 
       try {
         const response = await chrome.runtime.sendMessage({
@@ -207,6 +236,9 @@
             extension: ext,
             label: `${lang}-snippet`,
             sourceName: platformName,
+            conversationTitle: ctx.conversationTitle,
+            promptText: ctx.promptText,
+            sourceUrl: ctx.sourceUrl,
           },
         });
 
@@ -253,6 +285,9 @@
       if (!img.src) return;
       setButtonState(btn, 'saving');
 
+      const ctx = extractSurroundingContext(img);
+      const altText = (img.alt || img.title || '').trim();
+
       try {
         const response = await chrome.runtime.sendMessage({
           action: 'CAPTURE_ARTIFACT',
@@ -260,6 +295,10 @@
             type: 'image',
             imageUrl: img.src,
             sourceName: platformName,
+            altText: altText,
+            conversationTitle: ctx.conversationTitle,
+            promptText: ctx.promptText,
+            sourceUrl: ctx.sourceUrl,
           },
         });
 
@@ -302,6 +341,22 @@
 
   // Initial scan
   scanDOM();
+
+  // Handle messages from background worker (e.g. context menu clicks requesting context)
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.action === 'EXTRACT_CONTEXT') {
+      let targetEl = null;
+      if (message.srcUrl) {
+        targetEl = Array.from(document.querySelectorAll('img')).find(
+          (img) => img.src === message.srcUrl || img.currentSrc === message.srcUrl
+        );
+      }
+      const ctx = extractSurroundingContext(targetEl || document.body);
+      const altText = targetEl ? (targetEl.alt || targetEl.title || '').trim() : '';
+      sendResponse({ ...ctx, altText });
+      return false;
+    }
+  });
 
   // Throttled observer for dynamic AI responses
   let scanTimeout = null;

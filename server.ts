@@ -12,6 +12,10 @@ import {
   createServerClient,
   createUserClient,
 } from './src/lib/supabase/server.ts';
+import {
+  organizeDeliverable,
+  isGenericName,
+} from './src/lib/ai/organizationEngine.ts';
 
 dotenv.config();
 
@@ -391,14 +395,14 @@ export async function createServer() {
   // ARTIFACTS
   // --------------------------------------------------------------------------
 
-  // GET /api/v1/artifacts — query artifacts filtered by user_id
+  // GET /api/v1/artifacts — query artifacts filtered by user_id with joined project
   app.get('/api/v1/artifacts', requireAuth, async (req: Request, res: Response) => {
     const db = getDb(req);
     const { project_id } = req.query;
 
     let query = db
       .from('artifacts')
-      .select('*')
+      .select('*, project:projects(id, name, color, icon)')
       .eq('user_id', req.user!.id)
       .order('created_at', { ascending: false });
 
@@ -414,7 +418,7 @@ export async function createServer() {
     res.json({ data: data || [] });
   });
 
-  // POST /api/v1/artifacts — insert into artifacts table with user_id
+  // POST /api/v1/artifacts — intelligent organization & persistent insertion
   app.post('/api/v1/artifacts', requireAuth, async (req: Request, res: Response) => {
     const body = req.body || {};
     const {
@@ -431,7 +435,11 @@ export async function createServer() {
       description,
       source_type = 'ai_export',
       source_name = 'Gemini',
-      ai_confidence = 0.9,
+      source_url,
+      conversation_title,
+      context_prompt,
+      alt_text,
+      ai_confidence,
       metadata = {},
     } = body;
 
@@ -441,30 +449,67 @@ export async function createServer() {
       return;
     }
 
-    const ext = extension || (actualOriginalName.split('.').pop() || 'bin').toLowerCase();
-    const actualDisplayName = display_name || actualOriginalName;
-
     const db = getDb(req);
+
+    // Merge surrounding context parameters from body or metadata
+    const effectiveSourceUrl =
+      source_url || (metadata && typeof metadata === 'object' ? (metadata as any).source_url : '') || '';
+    const effectiveConvTitle =
+      conversation_title || (metadata && typeof metadata === 'object' ? (metadata as any).conversation_title : '') || '';
+    const effectivePrompt =
+      context_prompt || (metadata && typeof metadata === 'object' ? (metadata as any).context_prompt : '') || '';
+    const effectiveAltText =
+      alt_text || (metadata && typeof metadata === 'object' ? (metadata as any).alt_text : '') || '';
+
+    // Run the Intelligent Organization Engine
+    const orgResult = await organizeDeliverable(db, {
+      userId: req.user!.id,
+      originalName: actualOriginalName,
+      mimeType: mime_type,
+      extension: extension || actualOriginalName.split('.').pop() || 'bin',
+      sizeBytes: Number(size_bytes) || 0,
+      sourceType: source_type,
+      sourceName: source_name,
+      sourceUrl: effectiveSourceUrl,
+      conversationTitle: effectiveConvTitle,
+      contextPrompt: effectivePrompt,
+      altText: effectiveAltText,
+      explicitProjectId: project_id || null,
+      explicitDisplayName: display_name && !isGenericName(display_name) ? display_name : null,
+      explicitProviderPath: provider_path || null,
+    });
+
+    const finalMetadata = {
+      ...(typeof metadata === 'object' && metadata !== null ? metadata : {}),
+      source_url: effectiveSourceUrl || undefined,
+      conversation_title: effectiveConvTitle || undefined,
+      context_prompt: effectivePrompt || undefined,
+      alt_text: effectiveAltText || undefined,
+      category: orgResult.category,
+      subfolder: orgResult.subfolder,
+      organization_time_ms: orgResult.executionTimeMs,
+    };
+
     const { data, error } = await db
       .from('artifacts')
       .insert({
         user_id: req.user!.id,
-        project_id: project_id || null,
+        project_id: orgResult.projectId || null,
         storage_connection_id: storage_connection_id || null,
-        original_name: actualOriginalName,
-        display_name: actualDisplayName,
+        original_name: orgResult.originalName,
+        display_name: orgResult.displayName,
         mime_type,
-        extension: ext,
+        extension: orgResult.extension,
         size_bytes: Number(size_bytes) || 0,
         provider_file_id: provider_file_id || null,
-        provider_path: provider_path || null,
-        description: description || null,
+        provider_path: orgResult.providerPath,
+        description: description || orgResult.description,
         source_type,
         source_name,
-        ai_confidence: Number(ai_confidence) || 0.9,
-        metadata: typeof metadata === 'object' && metadata !== null ? metadata : {},
+        ai_confidence: ai_confidence ? Number(ai_confidence) : orgResult.aiConfidence,
+        metadata: finalMetadata,
       })
-      .select()
+      .select('*, project:projects(id, name, color, icon)')
       .single();
 
     if (error) {
@@ -477,12 +522,29 @@ export async function createServer() {
       user_id: req.user!.id,
       artifact_id: data.id,
       event_type: 'created',
-      actor_type: 'human',
+      actor_type: req.user!.authMethod === 'extension' ? 'agent' : 'human',
       actor_id: req.user!.id,
-      metadata: { original_name: data.original_name, display_name: data.display_name },
+      metadata: {
+        original_name: data.original_name,
+        display_name: data.display_name,
+        project_name: orgResult.projectName,
+        provider_path: data.provider_path,
+        organization_time_ms: orgResult.executionTimeMs,
+      },
     });
 
-    res.status(201).json({ data });
+    res.status(201).json({
+      data,
+      organization: {
+        project_name: orgResult.projectName,
+        project_id: orgResult.projectId,
+        project_created: orgResult.projectCreated,
+        provider_path: orgResult.providerPath,
+        category: orgResult.category,
+        subfolder: orgResult.subfolder,
+        execution_time_ms: orgResult.executionTimeMs,
+      },
+    });
   });
 
   // PUT /api/v1/artifacts/:id — update artifact in Supabase

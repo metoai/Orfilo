@@ -139,6 +139,9 @@ async function ingestArtifact({
   description,
   base64Content,
   previewText,
+  conversationTitle = '',
+  promptText = '',
+  altText = '',
 }) {
   const { token, serverUrl } = await getAuthCredentials();
 
@@ -156,9 +159,16 @@ async function ingestArtifact({
     size_bytes: actualSize,
     source_type: 'browser_extension',
     source_name: sourceName,
+    source_url: sourceUrl,
+    conversation_title: conversationTitle,
+    context_prompt: promptText,
+    alt_text: altText,
     description: description || `Captured from ${sourceName}`,
     metadata: {
       source_url: sourceUrl,
+      conversation_title: conversationTitle,
+      context_prompt: promptText,
+      alt_text: altText,
       captured_at: new Date().toISOString(),
     },
     content_base64: base64Content,
@@ -181,8 +191,20 @@ async function ingestArtifact({
   }
 
   const responseData = await response.json();
-  await recordSuccessfulCapture(filename);
-  showNotification('Saved to Orfilo', `"${filename}" saved successfully.`);
+  const savedItem = responseData?.data || {};
+  const orgInfo = responseData?.organization || {};
+
+  const finalTitle = savedItem.display_name || filename;
+  const projectName = orgInfo.project_name || savedItem.project?.name || 'Project';
+  const folderPath = orgInfo.provider_path || savedItem.provider_path || '';
+
+  await recordSuccessfulCapture(finalTitle);
+
+  showNotification(
+    'Saved to Orfilo',
+    `"${finalTitle}" organized into [${projectName}] (${orgInfo.category || 'Assets'} / ${orgInfo.subfolder || 'General'})`
+  );
+
   return responseData;
 }
 
@@ -193,18 +215,44 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const pageUrl = info.pageUrl || tab?.url || '';
   const sourceName = detectSourceName(pageUrl);
 
+  // Extract page / conversation title
+  const rawTitle = tab?.title || '';
+  const cleanTitle = rawTitle
+    .replace(/\s*[-–|]\s*(ChatGPT|Claude|Gemini|v0|Midjourney).*$/i, '')
+    .trim();
+
+  let context = {
+    conversationTitle: cleanTitle || 'AI Deliverables',
+    promptText: '',
+    altText: '',
+    sourceUrl: pageUrl,
+  };
+
+  // Ask tab content script for surrounding context if available
+  if (tab?.id) {
+    try {
+      const inPageCtx = await chrome.tabs.sendMessage(tab.id, {
+        action: 'EXTRACT_CONTEXT',
+        srcUrl: info.srcUrl,
+      });
+      if (inPageCtx) {
+        context = { ...context, ...inPageCtx };
+      }
+    } catch (_) {}
+  }
+
   try {
     if (info.menuItemId === 'orfilo_save_image' && info.srcUrl) {
-      await captureImageFromUrl(info.srcUrl, pageUrl, sourceName);
+      await captureImageFromUrl(info.srcUrl, pageUrl, sourceName, context);
     } else if (info.menuItemId === 'orfilo_save_selection' && info.selectionText) {
-      await captureTextContent(info.selectionText, pageUrl, sourceName, 'Snippet');
+      await captureTextContent(info.selectionText, pageUrl, sourceName, 'Snippet', 'md', context);
     } else if (info.menuItemId === 'orfilo_save_link' && info.linkUrl) {
       const linkText = `Link URL: ${info.linkUrl}\nPage Source: ${pageUrl}`;
-      await captureTextContent(linkText, pageUrl, sourceName, 'Bookmark');
+      await captureTextContent(linkText, pageUrl, sourceName, 'Bookmark', 'md', context);
     } else if (info.menuItemId === 'orfilo_save_page') {
       const pageTitle = tab?.title || 'Web Page';
       const summary = `Title: ${pageTitle}\nURL: ${pageUrl}\nCaptured: ${new Date().toISOString()}`;
-      await captureTextContent(summary, pageUrl, sourceName, pageTitle);
+      await captureTextContent(summary, pageUrl, sourceName, pageTitle, 'md', context);
     }
   } catch (err) {
     console.error('[Orfilo Background] Capture failed:', err);
@@ -217,7 +265,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // -----------------------------------------------------------------------------
 // 5. CAPTURE HANDLERS (IMAGES & TEXT)
 // -----------------------------------------------------------------------------
-async function captureImageFromUrl(imageUrl, pageUrl, sourceName) {
+async function captureImageFromUrl(imageUrl, pageUrl, sourceName, context = {}) {
   let blob;
   let mimeType = 'image/png';
   let ext = 'png';
@@ -243,9 +291,12 @@ async function captureImageFromUrl(imageUrl, pageUrl, sourceName) {
       actualSize: rawLength,
       sourceUrl: pageUrl,
       sourceName,
-      description: `Captured image from ${sourceName}`,
+      description: context.promptText || `Captured image from ${sourceName}`,
       base64Content,
       previewText: `[Image: ${filename}]`,
+      conversationTitle: context.conversationTitle,
+      promptText: context.promptText,
+      altText: context.altText,
     });
     return;
   }
@@ -286,13 +337,16 @@ async function captureImageFromUrl(imageUrl, pageUrl, sourceName) {
     actualSize,
     sourceUrl: pageUrl,
     sourceName,
-    description: `Captured image from ${sourceName}`,
+    description: context.promptText || `Captured image from ${sourceName}`,
     base64Content,
     previewText: `[Image: ${filename}]`,
+    conversationTitle: context.conversationTitle,
+    promptText: context.promptText,
+    altText: context.altText,
   });
 }
 
-async function captureTextContent(text, pageUrl, sourceName, label = 'Snippet', suggestedExt = 'md') {
+async function captureTextContent(text, pageUrl, sourceName, label = 'Snippet', suggestedExt = 'md', context = {}) {
   const encoder = new TextEncoder();
   const encoded = encoder.encode(text);
   const actualSize = encoded.length;
@@ -316,14 +370,18 @@ async function captureTextContent(text, pageUrl, sourceName, label = 'Snippet', 
     actualSize,
     sourceUrl: pageUrl,
     sourceName,
-    description: `${label} captured from ${sourceName}`,
+    description: context.promptText || `${label} captured from ${sourceName}`,
     base64Content,
     previewText: text.slice(0, 500),
+    conversationTitle: context.conversationTitle,
+    promptText: context.promptText,
+    altText: context.altText,
   });
 }
 
 // -----------------------------------------------------------------------------
 // 6. MESSAGING INTERFACE (FROM CONTENT SCRIPT)
+// -----------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'PAIR_EXTENSION') {
     (async () => {
@@ -355,13 +413,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const pageUrl = sender.tab?.url || payload.sourceUrl || '';
         const sourceName = payload.sourceName || detectSourceName(pageUrl);
 
+        const context = {
+          conversationTitle: payload.conversationTitle || '',
+          promptText: payload.promptText || '',
+          altText: payload.altText || '',
+          sourceUrl: pageUrl,
+        };
+
         if (payload.type === 'image' && payload.imageUrl) {
-          await captureImageFromUrl(payload.imageUrl, pageUrl, sourceName);
+          await captureImageFromUrl(payload.imageUrl, pageUrl, sourceName, context);
         } else if (payload.type === 'code' || payload.type === 'text') {
           const content = payload.content || '';
           const ext = payload.extension || 'txt';
           const label = payload.label || 'code';
-          await captureTextContent(content, pageUrl, sourceName, label, ext);
+          await captureTextContent(content, pageUrl, sourceName, label, ext, context);
         } else {
           throw new Error('Unsupported artifact payload type');
         }
