@@ -40,6 +40,7 @@ class DatabaseService {
       headers,
     });
     if (!res.ok) {
+      if (res.status === 401) return [];
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to fetch projects (HTTP ${res.status})`);
     }
@@ -104,6 +105,7 @@ class DatabaseService {
       headers,
     });
     if (!res.ok) {
+      if (res.status === 401) return [];
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to fetch artifacts (HTTP ${res.status})`);
     }
@@ -171,6 +173,7 @@ class DatabaseService {
       headers,
     });
     if (!res.ok) {
+      if (res.status === 401) return [];
       const err = await res.json().catch(() => ({}));
       throw new Error(err.error || `Failed to fetch events (HTTP ${res.status})`);
     }

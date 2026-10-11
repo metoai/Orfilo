@@ -28,7 +28,10 @@
         "*://claude.ai/*",
         "*://gemini.google.com/*",
         "*://v0.dev/*",
-        "*://*.midjourney.com/*"
+        "*://*.midjourney.com/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*",
+        "*://*.vercel.app/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"],

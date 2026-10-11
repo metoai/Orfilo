@@ -324,8 +324,30 @@ async function captureTextContent(text, pageUrl, sourceName, label = 'Snippet', 
 
 // -----------------------------------------------------------------------------
 // 6. MESSAGING INTERFACE (FROM CONTENT SCRIPT)
-// -----------------------------------------------------------------------------
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'PAIR_EXTENSION') {
+    (async () => {
+      try {
+        const token = message.token;
+        const userEmail = message.userEmail || 'Google User';
+        const serverUrl = message.serverUrl || DEFAULT_SERVER_URL;
+        if (!token) throw new Error('No token provided');
+
+        await chrome.storage.local.set({
+          orfiloToken: token,
+          orfiloUser: userEmail,
+          orfiloServerUrl: serverUrl,
+        });
+
+        showNotification('Orfilo Extension Paired!', `Signed in as ${userEmail}. Ready to capture AI deliverables.`);
+        sendResponse({ success: true });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
+    })();
+    return true;
+  }
+
   if (message.action === 'CAPTURE_ARTIFACT') {
     (async () => {
       try {

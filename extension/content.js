@@ -19,6 +19,31 @@
     return null;
   }
 
+  function isOrfiloApp() {
+    const host = window.location.hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host.includes('vercel.app') || host.includes('orfilo');
+  }
+
+  if (isOrfiloApp()) {
+    console.log('[Orfilo Companion] Pairing bridge active on Orfilo web app');
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'ORFILO_PAIR_EXTENSION' && event.data.token) {
+        chrome.runtime.sendMessage({
+          action: 'PAIR_EXTENSION',
+          token: event.data.token,
+          userEmail: event.data.userEmail,
+          serverUrl: window.location.origin,
+        }, (response) => {
+          if (response && response.success) {
+            window.postMessage({ type: 'ORFILO_PAIR_CONFIRMED', success: true }, '*');
+          }
+        });
+      }
+    });
+    window.postMessage({ type: 'ORFILO_EXTENSION_INSTALLED', version: '2.0.0' }, '*');
+    return;
+  }
+
   const platformName = detectPlatform();
   if (!platformName) return;
 

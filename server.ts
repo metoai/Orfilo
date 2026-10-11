@@ -201,6 +201,23 @@ export async function createServer() {
     });
   });
 
+  // GET /api/v1/auth/google — initiate Supabase Google OAuth
+  app.get('/api/v1/auth/google', (req: Request, res: Response) => {
+    const config = getServerSupabaseConfig();
+    if (!config.url) {
+      res.status(500).json({ error: 'Supabase is not configured' });
+      return;
+    }
+
+    const host = req.get('host') || `localhost:${PORT}`;
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const origin = `${proto}://${host}`;
+    const redirectParam = (req.query.redirect as string) || `${origin}/?action=pair-extension`;
+
+    const googleAuthUrl = `${config.url}/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectParam)}`;
+    res.redirect(googleAuthUrl);
+  });
+
   // POST /api/v1/auth/signup — register user with Supabase
   app.post('/api/v1/auth/signup', async (req: Request, res: Response) => {
     const { email, password, name } = req.body || {};

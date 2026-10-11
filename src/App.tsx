@@ -108,6 +108,20 @@ export default function App() {
       if (params.get('action') === 'pair-extension') {
         if (user) {
           setIsExtensionPairModalOpen(true);
+        } else if (params.get('auth_provider') === 'google') {
+          const client = createBrowserClient();
+          if (client) {
+            client.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: `${window.location.origin}/?action=pair-extension`,
+                queryParams: {
+                  access_type: 'offline',
+                  prompt: 'select_account',
+                },
+              },
+            });
+          }
         } else {
           setAuthModalMode('signin');
           setIsAuthModalOpen(true);

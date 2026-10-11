@@ -26,6 +26,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   const loginSpinner = document.getElementById('loginSpinner');
   const loginBtnText = document.getElementById('loginBtnText');
   const linkSignUp = document.getElementById('linkSignUp');
+  const btnGoogleAuth = document.getElementById('btnGoogleAuth');
+  const btnToggleTokenInput = document.getElementById('btnToggleTokenInput');
+  const tokenPairForm = document.getElementById('tokenPairForm');
+  const pairingTokenInput = document.getElementById('pairingTokenInput');
 
   // App View
   const displayUserEmail = document.getElementById('displayUserEmail');
@@ -238,6 +242,85 @@ document.addEventListener('DOMContentLoaded', async () => {
     loginPassword.value = '';
     showAuthView();
     showAlert('Extension disconnected successfully.', 'success');
+  });
+
+  // ---------------------------------------------------------------------------
+  // Google Sign In / Sign Up
+  // ---------------------------------------------------------------------------
+  if (btnGoogleAuth) {
+    btnGoogleAuth.addEventListener('click', async () => {
+      hideAlert();
+      const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+      chrome.tabs.create({ url: `${serverUrl}/?action=pair-extension&auth_provider=google` });
+      showAlert('Google sign-in opened in browser. Complete sign-in to pair automatically.', 'info');
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Direct Token Pairing
+  // ---------------------------------------------------------------------------
+  if (btnToggleTokenInput && tokenPairForm) {
+    btnToggleTokenInput.addEventListener('click', () => {
+      tokenPairForm.classList.toggle('hidden');
+      if (!tokenPairForm.classList.contains('hidden')) {
+        pairingTokenInput.focus();
+      }
+    });
+  }
+
+  if (tokenPairForm) {
+    tokenPairForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      hideAlert();
+      const token = pairingTokenInput.value.trim();
+      const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+
+      if (!token) {
+        showAlert('Please paste a pairing token.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${serverUrl}/api/v1/extension/status`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Accept': 'application/json',
+          },
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok || !data.authenticated) {
+          throw new Error(data.error || 'Invalid or revoked pairing token.');
+        }
+
+        const userEmail = data.user?.email || data.user_email || 'Authenticated User';
+        await chrome.storage.local.set({
+          orfiloToken: token,
+          orfiloUser: userEmail,
+          orfiloServerUrl: serverUrl,
+        });
+
+        pairingTokenInput.value = '';
+        tokenPairForm.classList.add('hidden');
+        const stats = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
+        showAppView(userEmail, stats);
+        showAlert('Extension successfully paired!', 'success');
+      } catch (err) {
+        console.error('[Orfilo Popup] Token pair error:', err);
+        showAlert(err.message || 'Verification failed. Please check token.', 'error');
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Real-time Storage Listener (e.g. when paired via Google web app bridge)
+  // ---------------------------------------------------------------------------
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && (changes.orfiloToken || changes.orfiloUser)) {
+      checkAuthStatus();
+    }
   });
 
   // ---------------------------------------------------------------------------

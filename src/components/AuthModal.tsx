@@ -182,13 +182,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     }
 
     try {
+      const isPairing = window.location.search.includes('action=pair-extension');
+      const redirectTarget = isPairing
+        ? `${window.location.origin}/?action=pair-extension`
+        : window.location.origin;
+
       const { data, error } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin,
+          redirectTo: redirectTarget,
           queryParams: {
             access_type: 'offline',
-            prompt: 'consent',
+            prompt: 'select_account',
           },
         },
       });

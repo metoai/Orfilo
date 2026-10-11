@@ -62,6 +62,20 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
 
   if (!isOpen) return null;
 
+  const [isAutoPaired, setIsAutoPaired] = useState(false);
+
+  // Listen for extension confirmation
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'ORFILO_PAIR_CONFIRMED') {
+        setIsAutoPaired(true);
+        setIsConnected(true);
+      }
+    };
+    window.addEventListener('message', handleMsg);
+    return () => window.removeEventListener('message', handleMsg);
+  }, []);
+
   const handleGenerateToken = async () => {
     setIsGenerating(true);
     setError(null);
@@ -86,12 +100,26 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
 
       setToken(data.token);
       setIsConnected(true);
+
+      // Broadcast to extension content script if running
+      window.postMessage({
+        type: 'ORFILO_PAIR_EXTENSION',
+        token: data.token,
+        userEmail: session.user?.email,
+      }, '*');
     } catch (err: any) {
       setError(err.message || 'Error generating token');
     } finally {
       setIsGenerating(false);
     }
   };
+
+  // Auto-generate token if user was directed here by extension pairing
+  useEffect(() => {
+    if (isOpen && !token && typeof window !== 'undefined' && window.location.search.includes('action=pair-extension')) {
+      handleGenerateToken();
+    }
+  }, [isOpen]);
 
   const handleCopy = () => {
     if (!token) return;
@@ -134,7 +162,9 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
           {isConnected && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-3 text-xs flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span className="font-medium">Extension Paired & Connected</span>
+              <span className="font-medium">
+                {isAutoPaired ? 'Extension Automatically Paired & Connected!' : 'Extension Paired & Connected'}
+              </span>
             </div>
           )}
 
