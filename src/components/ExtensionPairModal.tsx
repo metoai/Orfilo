@@ -20,6 +20,19 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+  const [isAutoPaired, setIsAutoPaired] = useState(false);
+
+  // Listen for extension confirmation
+  useEffect(() => {
+    const handleMsg = (e: MessageEvent) => {
+      if (e.data?.type === 'ORFILO_PAIR_CONFIRMED') {
+        setIsAutoPaired(true);
+        setIsConnected(true);
+      }
+    };
+    window.addEventListener('message', handleMsg);
+    return () => window.removeEventListener('message', handleMsg);
+  }, []);
 
   // Check extension pairing status when opened
   useEffect(() => {
@@ -60,38 +73,45 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
     checkStatus();
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  const [isAutoPaired, setIsAutoPaired] = useState(false);
-
-  // Listen for extension confirmation
-  useEffect(() => {
-    const handleMsg = (e: MessageEvent) => {
-      if (e.data?.type === 'ORFILO_PAIR_CONFIRMED') {
-        setIsAutoPaired(true);
-        setIsConnected(true);
-      }
-    };
-    window.addEventListener('message', handleMsg);
-    return () => window.removeEventListener('message', handleMsg);
-  }, []);
-
   const handleGenerateToken = async () => {
     setIsGenerating(true);
     setError(null);
     try {
       const client = createBrowserClient();
       if (!client) throw new Error('Supabase client not initialized');
-      const { data: { session } } = await client.auth.getSession();
+      let session = (await client.auth.getSession()).data.session;
       if (!session?.access_token) throw new Error('You must be signed in to pair an extension');
 
-      const res = await fetch('/api/v1/extension/pair', {
+      let tokenToUse = session.access_token;
+      if (session.expires_at && session.expires_at < Math.floor(Date.now() / 1000)) {
+        const { data: refreshed } = await client.auth.refreshSession();
+        if (refreshed.session) {
+          session = refreshed.session;
+          tokenToUse = session.access_token;
+        }
+      }
+
+      let res = await fetch('/api/v1/extension/pair', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${tokenToUse}`,
           'Content-Type': 'application/json',
         },
       });
+
+      if (res.status === 401) {
+        const { data: refreshed } = await client.auth.refreshSession();
+        if (refreshed.session) {
+          tokenToUse = refreshed.session.access_token;
+          res = await fetch('/api/v1/extension/pair', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${tokenToUse}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      }
 
       const data = await res.json();
       if (!res.ok) {
@@ -127,6 +147,8 @@ export const ExtensionPairModal: React.FC<ExtensionPairModalProps> = ({
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">

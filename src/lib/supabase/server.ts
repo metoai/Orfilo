@@ -7,7 +7,15 @@ export const getServerSupabaseConfig = () => {
     process.env.VITE_SUPABASE_URL ||
     '';
 
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const rawServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  const isRealServiceKey = Boolean(
+    rawServiceKey &&
+    !rawServiceKey.includes('...') &&
+    rawServiceKey.split('.').length === 3 &&
+    rawServiceKey.length > 50
+  );
+  const serviceRoleKey = isRealServiceKey ? rawServiceKey : '';
+
   const anonKey =
     process.env.SUPABASE_ANON_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
@@ -17,15 +25,14 @@ export const getServerSupabaseConfig = () => {
   const isConfigured = Boolean(
     url &&
     (serviceRoleKey || anonKey) &&
-    !url.includes('your-project-ref') &&
-    !serviceRoleKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')
+    !url.includes('your-project-ref')
   );
 
   return {
     url,
     serviceRoleKey,
     anonKey,
-    hasServiceRole: Boolean(serviceRoleKey && !serviceRoleKey.includes('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...')),
+    hasServiceRole: Boolean(serviceRoleKey),
     isConfigured,
   };
 };

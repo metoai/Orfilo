@@ -4,7 +4,21 @@ import { Project, Artifact, FileEvent, User } from '../../types/index.ts';
 async function getAuthHeaders(): Promise<HeadersInit> {
   const client = createBrowserClient();
   if (!client) throw new Error('Supabase not configured');
-  const { data: { session } } = await client.auth.getSession();
+  
+  let { data: { session } } = await client.auth.getSession();
+  if (!session) throw new Error('Not authenticated');
+
+  // If token is expired or within 60s of expiry, refresh seamlessly
+  const isExpiring = session.expires_at && (session.expires_at - 60 < Math.floor(Date.now() / 1000));
+  if (isExpiring) {
+    try {
+      const { data: refreshed } = await client.auth.refreshSession();
+      if (refreshed.session) {
+        session = refreshed.session;
+      }
+    } catch (_) {}
+  }
+
   if (!session?.access_token) throw new Error('Not authenticated');
   return {
     'Authorization': `Bearer ${session.access_token}`,
