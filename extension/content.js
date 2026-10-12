@@ -324,8 +324,8 @@
   // 4. ATTACH TO CODE BLOCKS
   // ---------------------------------------------------------------------------
   function attachToCodeBlock(pre) {
-    if (pre.getAttribute('data-orfilo-attached')) return;
-    pre.setAttribute('data-orfilo-attached', 'true');
+    const existing = pre.querySelector('.orfilo-save-btn');
+    if (existing && existing.isConnected) return;
 
     // Make sure pre or wrapper is positioned relative
     const style = window.getComputedStyle(pre);
@@ -381,15 +381,15 @@
   // 5. ATTACH TO IMAGES
   // ---------------------------------------------------------------------------
   function attachToImage(img) {
-    if (img.getAttribute('data-orfilo-attached')) return;
     // Skip small icons, badges, avatars
     if (img.width > 0 && img.width < 120 && img.height > 0 && img.height < 120) return;
-    if (!img.src || img.src.startsWith('blob:') && !img.complete) return;
-
-    img.setAttribute('data-orfilo-attached', 'true');
+    if (!img.src || (img.src.startsWith('blob:') && !img.complete)) return;
 
     const wrapper = img.parentElement;
     if (!wrapper) return;
+
+    const existing = wrapper.querySelector('.orfilo-save-btn');
+    if (existing && existing.isConnected) return;
 
     // Ensure wrapper has relative positioning
     const wrapperStyle = window.getComputedStyle(wrapper);
@@ -597,12 +597,52 @@
     return candidateTitles[0] || 'Google Doc Deliverable';
   }
 
+  function watchCardPersistence(card) {
+    if (card._orfiloWatcher) return;
+
+    let debounceTimer = null;
+    const observer = new MutationObserver(() => {
+      const btn = card.querySelector('.orfilo-save-btn');
+      if (!btn || !btn.isConnected) {
+        if (debounceTimer) return;
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          attachToDocumentCard(card);
+        }, 60);
+      }
+    });
+
+    observer.observe(card, { childList: true, subtree: true });
+    card._orfiloWatcher = observer;
+  }
+
   function attachToDocumentCard(card) {
     if (!card) return;
-    if (card.getAttribute('data-orfilo-card-attached')) return;
-    if (card.querySelector('.orfilo-save-btn')) return;
 
-    card.setAttribute('data-orfilo-card-attached', 'true');
+    // 1. If an Orfilo button is already live in this card and properly connected:
+    const existing = card.querySelector('.orfilo-save-btn');
+    if (existing && existing.isConnected && document.contains(existing)) {
+      // If openBtn rendered after the button was attached, ensure button is adjacent to openBtn
+      const buttons = Array.from(card.querySelectorAll('button, [role="button"], a'));
+      const openBtn = buttons.find((b) => {
+        if (b.classList.contains('orfilo-save-btn')) return false;
+        const text = (b.innerText || b.textContent || '').trim().toLowerCase();
+        return text === 'open' || text === 'view' || text === 'open in docs' || text.startsWith('open');
+      });
+      if (
+        openBtn &&
+        openBtn.parentElement &&
+        existing.nextElementSibling !== openBtn &&
+        existing.previousElementSibling !== openBtn
+      ) {
+        openBtn.insertAdjacentElement('beforebegin', existing);
+      }
+      watchCardPersistence(card);
+      return;
+    }
+
+    // Set up persistence watcher on this card
+    watchCardPersistence(card);
 
     // Create Save to Orfilo button
     const btn = createCaptureButton('Save to Orfilo');
@@ -656,7 +696,7 @@
       }
     });
 
-    // Placement: find the "Open" button inside card and insert right next to it
+    // Placement: find the "Open" button inside card and insert right before it
     const buttons = Array.from(card.querySelectorAll('button, [role="button"], a'));
     const openBtn = buttons.find((b) => {
       if (b.classList.contains('orfilo-save-btn')) return false;
@@ -665,7 +705,8 @@
     });
 
     if (openBtn && openBtn.parentElement) {
-      openBtn.insertAdjacentElement('afterend', btn);
+      // Place right before openBtn so it sits naturally inside the card's action row
+      openBtn.insertAdjacentElement('beforebegin', btn);
     } else {
       const lastBtn = buttons[buttons.length - 1];
       if (lastBtn && lastBtn !== btn && lastBtn.parentElement) {
@@ -916,11 +957,16 @@
     scanTimeout = setTimeout(() => {
       scanDOM();
       scanTimeout = null;
-    }, 500);
+    }, 200);
   });
 
   observer.observe(document.body, {
     childList: true,
     subtree: true,
   });
+
+  // Self-healing periodic heartbeat to guarantee buttons persist across React reconciliation
+  setInterval(() => {
+    scanDocumentCards();
+  }, 1000);
 })();
