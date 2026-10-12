@@ -511,10 +511,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF9] text-neutral-900 flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
+    <div className="min-h-screen bg-[#FAFAF9] text-neutral-900 flex antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
       {/* Global Error Banner */}
       {globalError && (
-        <aside aria-label="Global Error" className="bg-red-50 border-b border-red-200/80 px-4 py-2 text-xs text-red-800 flex items-center justify-between shrink-0">
+        <aside aria-label="Global Error" className="fixed top-0 left-0 right-0 z-50 bg-red-50 border-b border-red-200/80 px-4 py-2 text-xs text-red-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span>{globalError}</span>
@@ -525,344 +525,350 @@ export default function App() {
         </aside>
       )}
 
-      {/* Main Top Header Bar (Better Auth Style) */}
-      <header className="h-14 border-b border-neutral-200/80 bg-white px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => {
-              setSelectedProjectId(null);
-              setSelectedSubfolder(null);
-              setActiveTab('home');
-            }}
-            className="flex items-center gap-2 cursor-pointer text-left"
-          >
-            <OrfiloIcon size={24} />
-            <span className="font-semibold text-sm tracking-tight text-neutral-900">Orfilo</span>
-          </button>
+      {/* Desktop Sidebar Navigation (Full Height) */}
+      <aside className="w-64 border-r border-neutral-200/80 bg-white flex flex-col justify-between shrink-0 hidden md:flex h-screen sticky top-0 z-30">
+        <div className="p-4 space-y-5 overflow-y-auto">
+          {/* Brand header at top of sidebar */}
+          <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setSelectedSubfolder(null);
+                setActiveTab('home');
+              }}
+              className="flex items-center gap-2.5 cursor-pointer text-left"
+            >
+              <OrfiloIcon size={24} />
+              <span className="font-semibold text-sm tracking-tight text-neutral-900">Orfilo</span>
+            </button>
 
-          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60 hidden sm:inline-block">
-            v2.0
-          </span>
-        </div>
+            <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60">
+              v2.0
+            </span>
+          </div>
 
-        {/* Center Search / Command Bar */}
-        <div className="flex-1 max-w-md mx-4 hidden sm:block">
-          <div className="relative flex items-center">
-            <Search className="w-3.5 h-3.5 absolute left-3 text-neutral-400" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search deliverables, projects, subfolders..."
-              className="w-full pl-8 pr-12 py-1.5 bg-neutral-100/70 hover:bg-neutral-100 focus:bg-white border border-neutral-200/70 focus:border-[#19A974] rounded-xl text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#19A974] transition-all"
-            />
-            <div className="absolute right-2.5 flex items-center gap-1">
-              {searchQuery ? (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="text-neutral-400 hover:text-neutral-900 p-0.5 cursor-pointer text-xs"
-                >
-                  ✕
-                </button>
-              ) : (
-                <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-neutral-400 bg-white border border-neutral-200 rounded shadow-2xs">
-                  ⌘K
-                </kbd>
+          {/* Primary Nav Links (Better Auth Segmented Style) */}
+          <nav className="space-y-1 text-xs">
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setSelectedSubfolder(null);
+                setActiveTab('home');
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'home' && !selectedProjectId
+                  ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+              }`}
+            >
+              <Home className="w-4 h-4 text-neutral-500" />
+              <span>Home</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setSelectedSubfolder(null);
+                setActiveTab('projects');
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'projects' && !selectedProjectId
+                  ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Folder className="w-4 h-4 text-neutral-500" />
+                <span>Projects</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
+                {projects.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setSelectedSubfolder(null);
+                setActiveTab('artifacts');
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'artifacts'
+                  ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Layers className="w-4 h-4 text-neutral-500" />
+                <span>All Artifacts</span>
+              </div>
+              <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
+                {artifacts.length}
+              </span>
+            </button>
+
+            <button
+              onClick={() => {
+                setSelectedProjectId(null);
+                setSelectedSubfolder(null);
+                setActiveTab('activity');
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
+                activeTab === 'activity'
+                  ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+              }`}
+            >
+              <Activity className="w-4 h-4 text-neutral-500" />
+              <span>Activity</span>
+            </button>
+          </nav>
+
+          {/* Project Folders Tree with Drag & Drop */}
+          <div className="pt-3 border-t border-neutral-100">
+            <div className="flex items-center justify-between px-2 py-1 mb-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider font-mono">
+              <span>Project Folders</span>
+              <button
+                onClick={() => {
+                  setProjectToEdit(null);
+                  setIsProjectModalOpen(true);
+                }}
+                className="p-1 rounded hover:bg-neutral-100 text-neutral-400 hover:text-neutral-900 cursor-pointer"
+                title="Create Project"
+              >
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+
+            {draggingArtifact && (
+              <div className="mx-1 mb-1.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-[10px] text-emerald-800 font-medium flex items-center gap-1.5 animate-pulse">
+                <FolderInput className="w-3 h-3 shrink-0" />
+                <span className="truncate">Drop into folder to move</span>
+              </div>
+            )}
+
+            <div className="space-y-0.5 max-h-56 overflow-y-auto pr-0.5">
+              {projects.map((proj) => {
+                const isSelected = selectedProjectId === proj.id;
+                const isDragOver = dragOverFolderId === proj.id;
+                const count = artifacts.filter((a) => a.project_id === proj.id).length;
+
+                return (
+                  <div key={proj.id} className="space-y-0.5">
+                    <div
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        setDragOverFolderId(proj.id);
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                          if (dragOverFolderId === proj.id) {
+                            setDragOverFolderId(null);
+                          }
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOverFolderId(null);
+                        const artifactId = e.dataTransfer.getData('text/plain');
+                        if (artifactId) {
+                          handleDropArtifactOnProject(artifactId, proj.id);
+                        }
+                      }}
+                      onClick={() => {
+                        if (selectedProjectId !== proj.id) {
+                          setSelectedSubfolder(null);
+                        }
+                        setSelectedProjectId(proj.id);
+                        setActiveTab('projects');
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
+                        isDragOver
+                          ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] font-semibold'
+                          : isSelected
+                          ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0"
+                          style={{ backgroundColor: proj.color || '#19A974' }}
+                        />
+                        <span className="truncate">{proj.name}</span>
+                      </div>
+
+                      <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-500 shrink-0">
+                        {count}
+                      </span>
+                    </div>
+
+                    {/* Nested Subfolders if Project Selected */}
+                    {isSelected && projectSubfolders.length > 0 && (
+                      <div className="ml-4 my-0.5 pl-2 border-l border-neutral-200 space-y-0.5">
+                        {projectSubfolders.map(({ name: subName, count: subCount }) => {
+                          const isSubActive = selectedSubfolder === subName;
+                          return (
+                            <div
+                              key={subName}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedSubfolder(isSubActive ? null : subName);
+                                setActiveTab('projects');
+                              }}
+                              className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-colors cursor-pointer ${
+                                isSubActive
+                                  ? 'bg-[#19A974] text-white font-semibold'
+                                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                              }`}
+                            >
+                              <span className="truncate">{subName}</span>
+                              <span
+                                className={`text-[9px] font-mono px-1 rounded ${
+                                  isSubActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
+                                }`}
+                              >
+                                {subCount}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {projects.length === 0 && (
+                <div className="px-2 py-2 text-[11px] text-neutral-400 italic">
+                  No projects yet
+                </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Action Controls */}
-        <div className="flex items-center gap-2">
+        {/* Sidebar Bottom: Settings & User Account */}
+        <div className="p-3 border-t border-neutral-200/80 bg-neutral-50/50 space-y-2 text-xs">
           <button
-            onClick={() => setIsExtensionPairModalOpen(true)}
-            className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
-            title="Pair Extension"
+            onClick={() => setActiveTab('settings')}
+            className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl font-medium transition-colors cursor-pointer ${
+              activeTab === 'settings'
+                ? 'bg-neutral-100 text-neutral-900'
+                : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60'
+            }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-            <Puzzle className="w-3.5 h-3.5 text-neutral-500" />
-            <span>Extension</span>
+            <Settings className="w-3.5 h-3.5 text-neutral-500" />
+            <span>Workspace Settings</span>
           </button>
 
-          <button
-            onClick={() => {
-              setProjectToEdit(null);
-              setIsProjectModalOpen(true);
-            }}
-            className="hidden lg:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
-          >
-            <FolderPlus className="w-3.5 h-3.5" />
-            <span>New Project</span>
-          </button>
-
-          <button
-            onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Artifact</span>
-          </button>
-
-          {/* User Profile Pill */}
-          <div className="ml-1 pl-2 border-l border-neutral-200/80 flex items-center">
+          <div className="flex items-center justify-between px-2.5 pt-1 border-t border-neutral-200/50 text-[11px] text-neutral-500">
             <button
-              onClick={() => setIsAuthModalOpen(true)}
-              className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs cursor-pointer shadow-2xs"
-              title={user.email}
+              onClick={() => setActiveTab('landing')}
+              className="hover:text-neutral-900 cursor-pointer"
             >
-              {user.name ? user.name[0].toUpperCase() : 'U'}
+              Landing Page
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="hover:text-red-600 flex items-center gap-1 cursor-pointer"
+            >
+              <LogOut className="w-3 h-3" />
+              <span>Sign out</span>
             </button>
           </div>
         </div>
-      </header>
+      </aside>
 
-      {/* Main Workspace Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Desktop Sidebar Navigation */}
-        <aside className="w-60 border-r border-neutral-200/80 bg-white flex flex-col justify-between shrink-0 hidden md:flex">
-          <div className="p-4 space-y-5 overflow-y-auto">
-            {/* Primary Nav Links (Better Auth Segmented Style) */}
-            <nav className="space-y-1 text-xs">
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setSelectedSubfolder(null);
-                  setActiveTab('home');
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
-                  activeTab === 'home' && !selectedProjectId
-                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                }`}
-              >
-                <Home className="w-4 h-4 text-neutral-500" />
-                <span>Home</span>
-              </button>
+      {/* Right Column: Header + Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen overflow-x-hidden">
+        {/* Sticky Top Header Bar */}
+        <header className="h-14 border-b border-neutral-200/80 bg-white/80 backdrop-blur-md px-6 sm:px-8 flex items-center justify-between shrink-0 sticky top-0 z-20">
+          {/* Mobile brand (shown only on mobile when sidebar is hidden) */}
+          <div className="flex md:hidden items-center gap-2">
+            <OrfiloIcon size={22} />
+            <span className="font-semibold text-sm tracking-tight text-neutral-900">Orfilo</span>
+          </div>
 
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setSelectedSubfolder(null);
-                  setActiveTab('projects');
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
-                  activeTab === 'projects' && !selectedProjectId
-                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Folder className="w-4 h-4 text-neutral-500" />
-                  <span>Projects</span>
-                </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
-                  {projects.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setSelectedSubfolder(null);
-                  setActiveTab('artifacts');
-                }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
-                  activeTab === 'artifacts'
-                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Layers className="w-4 h-4 text-neutral-500" />
-                  <span>All Artifacts</span>
-                </div>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
-                  {artifacts.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setSelectedSubfolder(null);
-                  setActiveTab('activity');
-                }}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
-                  activeTab === 'activity'
-                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
-                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                }`}
-              >
-                <Activity className="w-4 h-4 text-neutral-500" />
-                <span>Activity</span>
-              </button>
-            </nav>
-
-            {/* Project Folders Tree with Drag & Drop */}
-            <div className="pt-3 border-t border-neutral-100">
-              <div className="flex items-center justify-between px-2 py-1 mb-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider font-mono">
-                <span>Project Folders</span>
-                <button
-                  onClick={() => {
-                    setProjectToEdit(null);
-                    setIsProjectModalOpen(true);
-                  }}
-                  className="p-1 rounded hover:bg-neutral-100 text-neutral-400 hover:text-neutral-900 cursor-pointer"
-                  title="Create Project"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-
-              {draggingArtifact && (
-                <div className="mx-1 mb-1.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-[10px] text-emerald-800 font-medium flex items-center gap-1.5 animate-pulse">
-                  <FolderInput className="w-3 h-3 shrink-0" />
-                  <span className="truncate">Drop into folder to move</span>
-                </div>
-              )}
-
-              <div className="space-y-0.5 max-h-56 overflow-y-auto pr-0.5">
-                {projects.map((proj) => {
-                  const isSelected = selectedProjectId === proj.id;
-                  const isDragOver = dragOverFolderId === proj.id;
-                  const count = artifacts.filter((a) => a.project_id === proj.id).length;
-
-                  return (
-                    <div key={proj.id} className="space-y-0.5">
-                      <div
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                        }}
-                        onDragEnter={(e) => {
-                          e.preventDefault();
-                          setDragOverFolderId(proj.id);
-                        }}
-                        onDragLeave={(e) => {
-                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                            if (dragOverFolderId === proj.id) {
-                              setDragOverFolderId(null);
-                            }
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setDragOverFolderId(null);
-                          const artifactId = e.dataTransfer.getData('text/plain');
-                          if (artifactId) {
-                            handleDropArtifactOnProject(artifactId, proj.id);
-                          }
-                        }}
-                        onClick={() => {
-                          if (selectedProjectId !== proj.id) {
-                            setSelectedSubfolder(null);
-                          }
-                          setSelectedProjectId(proj.id);
-                          setActiveTab('projects');
-                        }}
-                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
-                          isDragOver
-                            ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] font-semibold'
-                            : isSelected
-                            ? 'bg-neutral-100 text-neutral-900 font-semibold'
-                            : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span
-                            className="w-2 h-2 rounded-full shrink-0"
-                            style={{ backgroundColor: proj.color || '#19A974' }}
-                          />
-                          <span className="truncate">{proj.name}</span>
-                        </div>
-
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-500 shrink-0">
-                          {count}
-                        </span>
-                      </div>
-
-                      {/* Nested Subfolders if Project Selected */}
-                      {isSelected && projectSubfolders.length > 0 && (
-                        <div className="ml-4 my-0.5 pl-2 border-l border-neutral-200 space-y-0.5">
-                          {projectSubfolders.map(({ name: subName, count: subCount }) => {
-                            const isSubActive = selectedSubfolder === subName;
-                            return (
-                              <div
-                                key={subName}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedSubfolder(isSubActive ? null : subName);
-                                  setActiveTab('projects');
-                                }}
-                                className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-colors cursor-pointer ${
-                                  isSubActive
-                                    ? 'bg-[#19A974] text-white font-semibold'
-                                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-                                }`}
-                              >
-                                <span className="truncate">{subName}</span>
-                                <span
-                                  className={`text-[9px] font-mono px-1 rounded ${
-                                    isSubActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
-                                  }`}
-                                >
-                                  {subCount}
-                                </span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {projects.length === 0 && (
-                  <div className="px-2 py-2 text-[11px] text-neutral-400 italic">
-                    No projects yet
-                  </div>
+          {/* Search / Command Bar (Left-aligned, perfectly matching content below) */}
+          <div className="w-full max-w-md hidden sm:block">
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 absolute left-3 text-neutral-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search deliverables, projects, subfolders..."
+                className="w-full pl-8 pr-12 py-1.5 bg-neutral-100/70 hover:bg-neutral-100 focus:bg-white border border-neutral-200/70 focus:border-[#19A974] rounded-xl text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#19A974] transition-all"
+              />
+              <div className="absolute right-2.5 flex items-center gap-1">
+                {searchQuery ? (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-neutral-400 hover:text-neutral-900 p-0.5 cursor-pointer text-xs"
+                  >
+                    ✕
+                  </button>
+                ) : (
+                  <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-neutral-400 bg-white border border-neutral-200 rounded shadow-2xs">
+                    ⌘K
+                  </kbd>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Sidebar Footer */}
-          <div className="p-3 border-t border-neutral-200/80 bg-neutral-50/50 space-y-2 text-xs">
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => setActiveTab('settings')}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl font-medium transition-colors cursor-pointer ${
-                activeTab === 'settings'
-                  ? 'bg-neutral-100 text-neutral-900'
-                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60'
-              }`}
+              onClick={() => setIsExtensionPairModalOpen(true)}
+              className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
+              title="Pair Extension"
             >
-              <Settings className="w-3.5 h-3.5 text-neutral-500" />
-              <span>Workspace Settings</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+              <Puzzle className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Extension</span>
             </button>
 
-            <div className="flex items-center justify-between px-2.5 pt-1 border-t border-neutral-200/50 text-[11px] text-neutral-500">
+            <button
+              onClick={() => {
+                setProjectToEdit(null);
+                setIsProjectModalOpen(true);
+              }}
+              className="hidden lg:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
+            >
+              <FolderPlus className="w-3.5 h-3.5" />
+              <span>New Project</span>
+            </button>
+
+            <button
+              onClick={() => setIsUploadOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Artifact</span>
+            </button>
+
+            {/* User Profile */}
+            <div className="ml-1 pl-2 border-l border-neutral-200/80 flex items-center">
               <button
-                onClick={() => setActiveTab('landing')}
-                className="hover:text-neutral-900 cursor-pointer"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs cursor-pointer shadow-2xs"
+                title={user.email}
               >
-                Landing Page
-              </button>
-              <button
-                onClick={handleSignOut}
-                className="hover:text-red-600 flex items-center gap-1 cursor-pointer"
-              >
-                <LogOut className="w-3 h-3" />
-                <span>Sign out</span>
+                {user.name ? user.name[0].toUpperCase() : 'U'}
               </button>
             </div>
           </div>
-        </aside>
+        </header>
 
         {/* Main Content Viewport */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          <main className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-6xl mx-auto w-full space-y-6">
+        <main className="px-6 sm:px-8 py-6 pb-24 md:pb-8 w-full space-y-6">
             {/* VIEW 1: HOME / OVERVIEW */}
             {activeTab === 'home' && !selectedProjectId && (
               <div className="space-y-6">
@@ -1530,7 +1536,6 @@ export default function App() {
             )}
           </main>
         </div>
-      </div>
 
       {/* Floating Drag Feedback Indicator */}
       {draggingArtifact && (
