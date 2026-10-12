@@ -447,8 +447,9 @@
   // Initial scan
   scanDOM();
 
-  // Handle messages from background worker (e.g. context menu clicks requesting context)
+  // Handle messages from background worker
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    // --- Extract surrounding context for a given image URL ---
     if (message.action === 'EXTRACT_CONTEXT') {
       let targetEl = null;
       if (message.srcUrl) {
@@ -460,6 +461,67 @@
       const altText = targetEl ? (targetEl.alt || targetEl.title || '').trim() : '';
       sendResponse({ ...ctx, altText });
       return false;
+    }
+
+    // --- Fetch a blob: URL and return it as base64 (blob: URLs only work in page context) ---
+    if (message.action === 'FETCH_BLOB_AS_BASE64') {
+      (async () => {
+        try {
+          const res = await fetch(message.blobUrl);
+          if (!res.ok) throw new Error(`Blob fetch failed: ${res.status}`);
+          const blob = await res.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          const base64 = btoa(binary);
+          sendResponse({ base64, mimeType: blob.type || 'image/png', size: blob.size });
+        } catch (err) {
+          sendResponse({ error: err.message });
+        }
+      })();
+      return true; // Keep channel open for async response
+    }
+
+    // --- Fetch an image URL from page context (for Google-hosted images that block SW fetch) ---
+    if (message.action === 'FETCH_IMAGE_AS_BASE64') {
+      (async () => {
+        try {
+          // Try fetch first
+          const res = await fetch(message.imageUrl, { mode: 'cors', credentials: 'include' });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const blob = await res.blob();
+          const arrayBuffer = await blob.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+          const base64 = btoa(binary);
+          sendResponse({ base64, mimeType: blob.type || 'image/png', size: blob.size });
+        } catch (_fetchErr) {
+          // Final fallback: draw image to canvas and export as PNG
+          try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise((resolve, reject) => {
+              img.onload = resolve;
+              img.onerror = reject;
+              img.src = message.imageUrl;
+            });
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx2d = canvas.getContext('2d');
+            ctx2d.drawImage(img, 0, 0);
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64 = dataUrl.replace(/^data:[^;]+;base64,/, '');
+            const size = Math.round(base64.length * 0.75);
+            sendResponse({ base64, mimeType: 'image/png', size });
+          } catch (canvasErr) {
+            sendResponse({ error: `Image fetch failed: ${canvasErr.message}` });
+          }
+        }
+      })();
+      return true; // Keep channel open for async response
     }
   });
 

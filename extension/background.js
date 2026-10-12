@@ -265,67 +265,115 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // 5. CAPTURE HANDLERS (IMAGES & TEXT)
 // -----------------------------------------------------------------------------
 async function captureImageFromUrl(imageUrl, pageUrl, sourceName, context = {}) {
-  let blob;
   let mimeType = 'image/png';
   let ext = 'png';
+  let base64Content = null;
+  let actualSize = 0;
 
   if (imageUrl.startsWith('data:')) {
-    // Handle inline data URLs
+    // Handle inline data URLs directly
     const matches = imageUrl.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
     if (!matches) throw new Error('Invalid data URL image format');
     mimeType = matches[1];
-    const base64Content = matches[2];
-    const rawLength = atob(base64Content).length;
+    base64Content = matches[2];
+    actualSize = Math.round(base64Content.length * 0.75);
 
     if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
     else if (mimeType.includes('webp')) ext = 'webp';
     else if (mimeType.includes('svg')) ext = 'svg';
     else if (mimeType.includes('gif')) ext = 'gif';
 
-    const filename = `image-${Date.now()}.${ext}`;
-    await ingestArtifact({
-      filename,
-      mimeType,
-      extension: ext,
-      actualSize: rawLength,
-      sourceUrl: pageUrl,
-      sourceName,
-      description: context.promptText || `Captured image from ${sourceName}`,
-      base64Content,
-      previewText: `[Image: ${filename}]`,
-      conversationTitle: context.conversationTitle,
-      promptText: context.promptText,
-      altText: context.altText,
+  } else if (imageUrl.startsWith('blob:')) {
+    // Blob URLs are only accessible in the page context, not the service worker.
+    // Ask the content script in the active tab to convert it to base64.
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabId = tabs[0]?.id;
+    if (!tabId) throw new Error('Cannot access blob image: no active tab');
+
+    const result = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error('Blob fetch timeout')), 15000);
+      chrome.tabs.sendMessage(tabId, { action: 'FETCH_BLOB_AS_BASE64', blobUrl: imageUrl }, (response) => {
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+        if (!response || response.error) return reject(new Error(response?.error || 'Blob fetch failed'));
+        resolve(response);
+      });
     });
-    return;
+
+    base64Content = result.base64;
+    mimeType = result.mimeType || 'image/png';
+    actualSize = result.size || 0;
+
+    if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+    else if (mimeType.includes('webp')) ext = 'webp';
+    else if (mimeType.includes('svg')) ext = 'svg';
+    else if (mimeType.includes('gif')) ext = 'gif';
+    else if (mimeType.includes('png')) ext = 'png';
+
+  } else {
+    // Regular HTTP(S) URLs — fetch from service worker
+    // Add no-cors mode with credentials to handle Google-hosted images
+    let res;
+    try {
+      res = await fetch(imageUrl, { mode: 'cors', credentials: 'omit' });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+    } catch (_corsErr) {
+      // Fall back to no-cors but this returns an opaque response with no body
+      // In that case we ask the content script to do the fetch
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const tabId = tabs[0]?.id;
+      if (!tabId) throw new Error(`Cannot fetch image from ${imageUrl}`);
+
+      const result = await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Image fetch timeout')), 15000);
+        chrome.tabs.sendMessage(tabId, { action: 'FETCH_IMAGE_AS_BASE64', imageUrl }, (response) => {
+          clearTimeout(timeout);
+          if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+          if (!response || response.error) return reject(new Error(response?.error || 'Image fetch failed in content script'));
+          resolve(response);
+        });
+      });
+
+      base64Content = result.base64;
+      mimeType = result.mimeType || 'image/png';
+      actualSize = result.size || 0;
+
+      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+      else if (mimeType.includes('webp')) ext = 'webp';
+      else if (mimeType.includes('svg')) ext = 'svg';
+      else if (mimeType.includes('gif')) ext = 'gif';
+      else if (mimeType.includes('png')) ext = 'png';
+    }
+
+    if (!base64Content && res) {
+      const blob = await res.blob();
+      if (blob.type) mimeType = blob.type;
+
+      if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
+      else if (mimeType.includes('webp')) ext = 'webp';
+      else if (mimeType.includes('svg')) ext = 'svg';
+      else if (mimeType.includes('gif')) ext = 'gif';
+      else if (mimeType.includes('png')) ext = 'png';
+
+      const arrayBuffer = await blob.arrayBuffer();
+      base64Content = arrayBufferToBase64(arrayBuffer);
+      actualSize = blob.size || arrayBuffer.byteLength;
+    }
   }
 
-  // Fetch actual image binary
-  const res = await fetch(imageUrl);
-  if (!res.ok) throw new Error(`Failed to download image (${res.status})`);
-
-  blob = await res.blob();
-  if (blob.type) mimeType = blob.type;
-
-  if (mimeType.includes('jpeg') || mimeType.includes('jpg')) ext = 'jpg';
-  else if (mimeType.includes('webp')) ext = 'webp';
-  else if (mimeType.includes('svg')) ext = 'svg';
-  else if (mimeType.includes('gif')) ext = 'gif';
-  else if (mimeType.includes('png')) ext = 'png';
-
-  const arrayBuffer = await blob.arrayBuffer();
-  const base64Content = arrayBufferToBase64(arrayBuffer);
-  const actualSize = blob.size || arrayBuffer.byteLength;
+  if (!base64Content) throw new Error('Could not get image content');
 
   let baseName = 'image';
-  try {
-    const urlObj = new URL(imageUrl);
-    const pathnameParts = urlObj.pathname.split('/');
-    const lastPart = pathnameParts[pathnameParts.length - 1];
-    if (lastPart && lastPart.length < 50 && lastPart.includes('.')) {
-      baseName = lastPart.split('.')[0];
-    }
-  } catch (_) {}
+  if (!imageUrl.startsWith('blob:')) {
+    try {
+      const urlObj = new URL(imageUrl);
+      const pathnameParts = urlObj.pathname.split('/');
+      const lastPart = pathnameParts[pathnameParts.length - 1];
+      if (lastPart && lastPart.length < 50 && lastPart.includes('.')) {
+        baseName = lastPart.split('.')[0];
+      }
+    } catch (_) {}
+  }
 
   const filename = `${baseName}-${Date.now()}.${ext}`;
 
