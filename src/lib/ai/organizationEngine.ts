@@ -158,6 +158,55 @@ export function toKebabCase(str: string): string {
 }
 
 /**
+ * Extracts a high-level, clean project name from a deliverable name or user prompt.
+ * E.g.:
+ * "Repodx Product Roadmap & GTM Strategy" -> "Repodx"
+ * "Repodx Technical Architecture & Security Whitepaper V2" -> "Repodx"
+ * "Habesha Model Portrait" -> "Habesha Model"
+ * "Habesha Model Face Only" -> "Habesha Model"
+ * "Baby Animation Character" -> "Baby Animation"
+ * "Thehero Section Minimal and Good" -> "Thehero Section"
+ */
+export function extractProjectNameFromDeliverable(displayName: string, prompt?: string): string {
+  const source = (displayName || prompt || '').trim();
+  if (!source) return '';
+
+  let clean = source
+    .replace(/^[,.\-_:;'"\s]+/, '')
+    .replace(/\s*[-–|:]\s*.*$/, '')
+    .trim();
+
+  const DESCRIPTOR_PATTERNS = [
+    /\s+(gtm\s+strategy|gtm|strategy|whitepaper|roadmap|architecture|specification|specs?|overview|summary|prd|guide|manual|documentation)$/i,
+    /\s+(product|technical|security|minimal\s+and\s+good|v\d+)$/i,
+    /\s+(ui\s+mockup|mockup|prototype|wireframe|dashboard|interface|landing\s+page|redesign)$/i,
+    /\s+(portrait|face\s+only|character|mascot|illustration|render|photo|picture|wallpaper)$/i,
+  ];
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    clean = clean.replace(/[\s&,.\-_:;'"\\/]+$/, '').trim();
+    for (const pat of DESCRIPTOR_PATTERNS) {
+      if (pat.test(clean)) {
+        const stripped = clean.replace(pat, '').trim();
+        if (stripped.length >= 2) {
+          clean = stripped;
+          changed = true;
+          break;
+        }
+      }
+    }
+  }
+
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length > 3) {
+    clean = words.slice(0, 3).join(' ');
+  }
+  return clean;
+}
+
+/**
  * Intelligent Organization Engine:
  * 1. Renames deliverables based on semantic prompt/alt context.
  * 2. Correlates with existing conversation projects or auto-creates a new project.
@@ -260,6 +309,9 @@ export async function organizeDeliverable(
   let resolvedProjectName = '';
   let projectCreated = false;
 
+  const currentPromptOrAlt = ctx.contextPrompt || ctx.altText || '';
+  const cleanConvTitle = sanitizeConversationTitle(ctx.conversationTitle);
+
   // A. Check explicit project ID if supplied
   if (resolvedProjectId) {
     const { data: explicitProj } = await db
@@ -277,10 +329,63 @@ export async function organizeDeliverable(
     }
   }
 
-  // B. Correlate by conversation source_url across existing artifacts ONLY IF semantically related!
-  const currentPromptOrAlt = ctx.contextPrompt || ctx.altText || '';
-  let priorArtifactsInSession: any[] = [];
+  // B. Correlate with existing user projects based on the DELIVERABLE itself!
+  if (!resolvedProjectId) {
+    try {
+      const { data: allProjects } = await db
+        .from('projects')
+        .select('id, name')
+        .eq('user_id', ctx.userId)
+        .order('created_at', { ascending: false });
 
+      if (allProjects && allProjects.length > 0) {
+        // Priority 1: Check semantic topic relationship with deliverable name or prompt
+        for (const proj of allProjects) {
+          if (isRelatedToProject(proj.name, currentPromptOrAlt, displayName)) {
+            resolvedProjectId = proj.id;
+            resolvedProjectName = proj.name;
+            break;
+          }
+        }
+
+        // Priority 2: Check extracted project brand/name against existing project names
+        if (!resolvedProjectId) {
+          const extractedBrand = extractProjectNameFromDeliverable(displayName, currentPromptOrAlt);
+          if (extractedBrand && extractedBrand.length >= 3) {
+            const match = allProjects.find(
+              (p) =>
+                p.name.toLowerCase() === extractedBrand.toLowerCase() ||
+                p.name.toLowerCase().startsWith(extractedBrand.toLowerCase()) ||
+                extractedBrand.toLowerCase().startsWith(p.name.toLowerCase())
+            );
+            if (match) {
+              resolvedProjectId = match.id;
+              resolvedProjectName = match.name;
+            }
+          }
+        }
+
+        // Priority 3: Match conversation title ONLY IF conversation title is actually related to the deliverable
+        if (!resolvedProjectId && cleanConvTitle) {
+          const convIsRelatedToDeliverable = isRelatedToProject(cleanConvTitle, currentPromptOrAlt, displayName);
+          if (convIsRelatedToDeliverable) {
+            const match = allProjects.find(
+              (p) =>
+                p.name.toLowerCase() === cleanConvTitle.toLowerCase() ||
+                p.name.toLowerCase().includes(cleanConvTitle.toLowerCase()) ||
+                cleanConvTitle.toLowerCase().includes(p.name.toLowerCase())
+            );
+            if (match) {
+              resolvedProjectId = match.id;
+              resolvedProjectName = match.name;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // C. Also check session history by source_url (ONLY if semantically related)
   if (!resolvedProjectId && ctx.sourceUrl) {
     try {
       const { data: matchedArtifacts } = await db
@@ -293,9 +398,6 @@ export async function organizeDeliverable(
         .limit(10);
 
       if (matchedArtifacts && matchedArtifacts.length > 0) {
-        priorArtifactsInSession = matchedArtifacts;
-
-        // Check each existing project in this conversation to find a topic match
         for (const matched of matchedArtifacts) {
           if (!matched.project_id) continue;
           let projName = (matched.project as any)?.name;
@@ -318,44 +420,23 @@ export async function organizeDeliverable(
     } catch (_) {}
   }
 
-  // C. Match by conversation title against existing projects (only if relevant to current deliverable)
-  const cleanConvTitle = sanitizeConversationTitle(ctx.conversationTitle);
-  const convTitleIsRelated =
-    cleanConvTitle && isRelatedToProject(cleanConvTitle, currentPromptOrAlt, displayName);
-
-  if (!resolvedProjectId && convTitleIsRelated) {
-    const { data: existingProjects } = await db
-      .from('projects')
-      .select('id, name')
-      .eq('user_id', ctx.userId);
-
-    if (existingProjects && existingProjects.length > 0) {
-      const lowerCandidate = cleanConvTitle.toLowerCase();
-      const match = existingProjects.find(
-        (p) =>
-          p.name.toLowerCase() === lowerCandidate ||
-          p.name.toLowerCase().includes(lowerCandidate) ||
-          lowerCandidate.includes(p.name.toLowerCase())
-      );
-      if (match) {
-        resolvedProjectId = match.id;
-        resolvedProjectName = match.name;
-      }
-    }
-  }
-
-  // D. If still no project, AUTO-CREATE a dedicated project for this deliverable
+  // D. If STILL no matching project, AUTO-CREATE a project for THIS DELIVERABLE
   if (!resolvedProjectId) {
-    // If there were no prior artifacts in this chat session, the clean conversation title is authoritative
-    // (e.g. chat was created as "Fintech Mobile App Redesign").
-    // If prior artifacts exist and this deliverable is a new topic, use the deliverable name.
-    const isFirstInSession = priorArtifactsInSession.length === 0;
-    const shouldUseConvTitle = Boolean(cleanConvTitle && (isFirstInSession || convTitleIsRelated));
+    // Project name must come from the deliverable itself, UNLESS conversation title is explicitly related!
+    const convIsRelated = Boolean(
+      cleanConvTitle && isRelatedToProject(cleanConvTitle, currentPromptOrAlt, displayName)
+    );
 
-    const rawProjectName =
-      (shouldUseConvTitle ? cleanConvTitle : '') ||
-      (displayName.length >= 2 && displayName.length <= 40 ? displayName : '') ||
-      `${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} Workspace`;
+    let rawProjectName = '';
+    if (convIsRelated) {
+      rawProjectName = cleanConvTitle;
+    } else {
+      rawProjectName = extractProjectNameFromDeliverable(displayName, currentPromptOrAlt);
+    }
+
+    if (!rawProjectName || isGenericName(rawProjectName)) {
+      rawProjectName = displayName || `${normalizeAiFolderName(ctx.sourceName, ctx.sourceUrl)} Workspace`;
+    }
     const newProjectName = sanitizeProjectFolderName(rawProjectName);
 
     const { icon, color } = pickProjectTheme(ctx.mimeType, ext, newProjectName);
