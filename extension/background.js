@@ -152,7 +152,7 @@ async function ingestArtifact({
 
   const payload = {
     original_name: filename,
-    display_name: filename,
+    display_name: altText && altText.trim().length > 2 ? altText.trim() : filename,
     filename: filename,
     mime_type: mimeType,
     extension: extension.replace(/^\./, ''),
@@ -166,6 +166,7 @@ async function ingestArtifact({
     description: description || `Captured from ${sourceName}`,
     metadata: {
       source_url: sourceUrl,
+      doc_url: sourceUrl && (sourceUrl.includes('google.com') || sourceUrl.includes('docs.')) ? sourceUrl : undefined,
       conversation_title: conversationTitle,
       context_prompt: promptText,
       alt_text: altText,

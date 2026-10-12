@@ -438,51 +438,173 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 6. ATTACH TO DOCUMENT CARDS & CHIPS (GEMINI GOOGLE DOCS, DRIVE CHIPS, ATTACHMENTS)
+  // 6. ATTACH TO DOCUMENT CARDS & CHIPS (CHATGPT, CLAUDE, GEMINI GOOGLE DOCS / DRIVE)
   // ---------------------------------------------------------------------------
-  function attachToDocumentCard(targetElement) {
-    if (targetElement.getAttribute('data-orfilo-attached')) return;
-    targetElement.setAttribute('data-orfilo-attached', 'true');
+  function findDocCardContainer(element) {
+    if (!element) return null;
 
-    // Find the enclosing card container or chip
-    const card =
-      targetElement.closest('.drive-chip, .file-chip, [class*="chip"], [class*="card"], [class*="container"], [data-doc-id], [data-drive-id]') ||
-      targetElement.parentElement;
+    const isBoundary = (el) => {
+      if (!el || el === document.body || el === document.documentElement) return true;
+      const tag = el.tagName.toUpperCase();
+      if (['ARTICLE', 'MAIN', 'BODY', 'HTML', 'FORM'].includes(tag)) return true;
+      if (
+        el.matches &&
+        (el.matches('[data-message-author-role]') ||
+          el.matches('.conversation-turn') ||
+          el.matches('model-response') ||
+          el.matches('.agent-turn'))
+      ) {
+        return true;
+      }
+      return false;
+    };
 
-    if (card && card.getAttribute('data-orfilo-attached')) return;
+    let curr = element;
+    for (let depth = 0; depth < 8 && curr && !isBoundary(curr); depth++) {
+      if (curr.classList && curr.classList.contains('orfilo-save-btn')) return null;
 
-    // Find the document link URL
-    let docUrl = '';
-    if (targetElement.tagName === 'A' && targetElement.href) {
-      docUrl = targetElement.href;
-    } else {
-      const innerLink = card ? card.querySelector('a[href*="docs.google.com"], a[href*="drive.google.com"], a[href]') : null;
-      docUrl = innerLink ? innerLink.href : (targetElement.getAttribute('data-url') || '');
+      // Detect card characteristics (ChatGPT tool pills, Gemini drive chips, Claude attachments)
+      const hasCardClass =
+        curr.matches &&
+        curr.matches(
+          '.drive-chip, .file-chip, drive-file-chip, doc-chip, [class*="chip"], [class*="card"], [class*="pill"], [class*="attachment"], [data-doc-id], [data-drive-id]'
+        );
+
+      const text = (curr.innerText || '').toLowerCase();
+      const hasDocText =
+        text.includes('google docs') ||
+        text.includes('google drive') ||
+        text.includes('google sheets') ||
+        text.includes('google slides');
+      const hasAction = !!curr.querySelector('button, [role="button"], a');
+
+      // Ensure dimensions are a compact card/pill and not the entire chat container
+      const rect = curr.getBoundingClientRect ? curr.getBoundingClientRect() : null;
+      const isReasonableSize = !rect || (rect.width > 80 && rect.width < 800 && rect.height > 20 && rect.height < 450);
+
+      if ((hasCardClass || (hasDocText && hasAction)) && isReasonableSize) {
+        return curr;
+      }
+
+      curr = curr.parentElement;
     }
 
-    if (!docUrl || docUrl.startsWith('javascript:')) return;
-    if (card) card.setAttribute('data-orfilo-attached', 'true');
+    return null;
+  }
 
-    // Extract clean document title
-    let docTitle = '';
+  function extractDocUrl(card) {
+    if (!card) return '';
+
+    // 1. Direct anchor inside card
+    const anchor = card.matches('a[href]')
+      ? card
+      : card.querySelector(
+          'a[href*="docs.google.com"], a[href*="drive.google.com"], a[href*="sheets.google.com"], a[href*="slides.google.com"]'
+        );
+    if (anchor && anchor.href) return anchor.href;
+
+    // 2. Action button with URL attributes
+    const actionBtn = card.querySelector('button[data-url], button[data-href], a[href], [data-url], [data-href]');
+    if (actionBtn) {
+      const u = actionBtn.getAttribute('data-url') || actionBtn.getAttribute('data-href') || actionBtn.href;
+      if (u && (u.includes('google.com') || u.startsWith('http'))) return u;
+    }
+
+    // 3. Any anchor inside the card
+    const anyLink = card.querySelector('a[href]');
+    if (anyLink && anyLink.href && anyLink.href.startsWith('http')) return anyLink.href;
+
+    // 4. Surrounding message turn
+    const turn =
+      card.closest('[data-message-author-role], article, model-response, .conversation-turn') || card.parentElement;
+    if (turn) {
+      const turnLinks = Array.from(
+        turn.querySelectorAll(
+          'a[href*="docs.google.com"], a[href*="drive.google.com"], a[href*="sheets.google.com"], a[href*="slides.google.com"]'
+        )
+      );
+      if (turnLinks.length > 0) {
+        return turnLinks[0].href;
+      }
+
+      // Check text or HTML for Google Doc URL
+      const htmlMatch = (turn.innerHTML || '').match(/https:\/\/(?:docs|drive)\.google\.com\/[^\s"'>]+/);
+      if (htmlMatch) return htmlMatch[0];
+    }
+
+    return '';
+  }
+
+  function extractDocTitle(card, docUrl) {
+    const candidateTitles = [];
+
+    // 1. Link text in the message pointing to this URL
+    if (docUrl) {
+      const matchingLinks = document.querySelectorAll(`a[href="${docUrl}"], a[href^="${docUrl}"]`);
+      for (const link of matchingLinks) {
+        const text = (link.innerText || link.textContent || '').trim();
+        if (
+          text &&
+          text.length > 3 &&
+          !['open', 'view', 'google docs', 'google drive', 'docs', 'edit'].includes(text.toLowerCase())
+        ) {
+          candidateTitles.push(text);
+        }
+      }
+    }
+
+    // 2. Titles inside the card
     if (card) {
-      // Look for title text inside card, excluding control labels
+      const titleEls = card.querySelectorAll(
+        'h1, h2, h3, h4, [class*="title"], [class*="name"], strong, b, [class*="font-semibold"], [class*="font-medium"]'
+      );
+      for (const el of titleEls) {
+        const t = (el.innerText || el.textContent || '').trim();
+        if (
+          t &&
+          t.length > 2 &&
+          !['open', 'view', 'google docs', 'google drive', 'docs', 'edit'].includes(t.toLowerCase())
+        ) {
+          candidateTitles.push(t);
+        }
+      }
+
       const lines = (card.innerText || card.textContent || '')
         .split('\n')
         .map((l) => l.trim())
         .filter((l) => {
           const low = l.toLowerCase();
-          return low && !['google docs', 'google drive', 'docs', 'open', 'view', 'edit', 'download'].includes(low);
+          return (
+            low &&
+            !['google docs', 'google drive', 'docs', 'open', 'view', 'edit', 'download', 'save to orfilo'].includes(low)
+          );
         });
-      if (lines.length > 0) docTitle = lines[0];
-    }
-    if (!docTitle && targetElement.innerText) {
-      docTitle = targetElement.innerText.trim();
-    }
-    if (!docTitle || ['open', 'google docs', 'view'].includes(docTitle.toLowerCase())) {
-      docTitle = 'Google Doc Overview';
+
+      if (lines.length > 0) {
+        candidateTitles.push(lines[0]);
+      }
     }
 
+    // Prefer non-truncated title with longest clean length
+    candidateTitles.sort((a, b) => {
+      const aTrunc = a.includes('...') || a.includes('…');
+      const bTrunc = b.includes('...') || b.includes('…');
+      if (aTrunc && !bTrunc) return 1;
+      if (!aTrunc && bTrunc) return -1;
+      return b.length - a.length;
+    });
+
+    return candidateTitles[0] || 'Google Doc Deliverable';
+  }
+
+  function attachToDocumentCard(card) {
+    if (!card) return;
+    if (card.getAttribute('data-orfilo-card-attached')) return;
+    if (card.querySelector('.orfilo-save-btn')) return;
+
+    card.setAttribute('data-orfilo-card-attached', 'true');
+
+    // Create Save to Orfilo button
     const btn = createCaptureButton('Save to Orfilo');
     btn.classList.add('orfilo-btn-doc');
 
@@ -491,10 +613,12 @@
       e.preventDefault();
 
       setButtonState(btn, 'saving');
-      const ctx = extractSurroundingContext(card || targetElement);
+
+      const docUrl = extractDocUrl(card);
+      const cleanTitle = extractDocTitle(card, docUrl);
+      const ctx = extractSurroundingContext(card);
 
       try {
-        // Attempt to fetch doc export text if accessible
         let docContent = '';
         const docIdMatch = docUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
         if (docIdMatch && docIdMatch[1]) {
@@ -512,11 +636,11 @@
           action: 'CAPTURE_ARTIFACT',
           payload: {
             type: 'document',
-            docUrl: docUrl,
-            title: docTitle,
+            docUrl: docUrl || window.location.href,
+            title: cleanTitle,
             docContent: docContent || '',
             sourceName: platformName,
-            conversationTitle: ctx.conversationTitle,
+            conversationTitle: ctx.conversationTitle || cleanTitle,
             promptText: ctx.promptText,
             sourceUrl: ctx.sourceUrl,
           },
@@ -532,19 +656,75 @@
       }
     });
 
-    // Placement: place next to "Open" button if found, or append inside card
-    if (card) {
-      const actionBtn = card.querySelector('button, [role="button"], a.open-btn, [class*="action"], [class*="button"]');
-      if (actionBtn && actionBtn.parentElement) {
-        actionBtn.parentElement.appendChild(btn);
+    // Placement: find the "Open" button inside card and insert right next to it
+    const buttons = Array.from(card.querySelectorAll('button, [role="button"], a'));
+    const openBtn = buttons.find((b) => {
+      if (b.classList.contains('orfilo-save-btn')) return false;
+      const text = (b.innerText || b.textContent || '').trim().toLowerCase();
+      return text === 'open' || text === 'view' || text === 'open in docs' || text.startsWith('open');
+    });
+
+    if (openBtn && openBtn.parentElement) {
+      openBtn.insertAdjacentElement('afterend', btn);
+    } else {
+      const lastBtn = buttons[buttons.length - 1];
+      if (lastBtn && lastBtn !== btn && lastBtn.parentElement) {
+        lastBtn.insertAdjacentElement('afterend', btn);
       } else {
         card.style.position = 'relative';
         btn.classList.add('orfilo-btn-doc-floating');
         card.appendChild(btn);
       }
-    } else {
-      targetElement.insertAdjacentElement('afterend', btn);
     }
+  }
+
+  function scanDocumentCards() {
+    // 1. Text walker for elements saying "Google Docs", "Google Drive", etc.
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+    const textMatches = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      const val = node.nodeValue.trim().toLowerCase();
+      if (val === 'google docs' || val === 'google drive' || val === 'google sheets' || val === 'google slides') {
+        if (node.parentElement) textMatches.push(node.parentElement);
+      }
+    }
+    textMatches.forEach((el) => {
+      const card = findDocCardContainer(el);
+      if (card) attachToDocumentCard(card);
+    });
+
+    // 2. Buttons or anchors with text "Open"
+    const allButtons = document.querySelectorAll('button, [role="button"], a');
+    allButtons.forEach((b) => {
+      if (b.classList.contains('orfilo-save-btn')) return;
+      const txt = (b.innerText || b.textContent || '').trim().toLowerCase();
+      if (txt === 'open' || txt === 'open in docs' || txt === 'view') {
+        const card = findDocCardContainer(b);
+        if (card) {
+          const cardText = (card.innerText || '').toLowerCase();
+          if (
+            cardText.includes('google docs') ||
+            cardText.includes('drive') ||
+            cardText.includes('.gdoc') ||
+            cardText.includes('docs.google.com')
+          ) {
+            attachToDocumentCard(card);
+          }
+        }
+      }
+    });
+
+    // 3. Document / Drive links and chips
+    const docLinks = document.querySelectorAll(
+      'a[href*="docs.google.com"], a[href*="drive.google.com"], a[href*="sheets.google.com"], a[href*="slides.google.com"], [data-drive-id], [data-doc-id], drive-file-chip, doc-chip, [class*="drive-chip"], [class*="file-chip"]'
+    );
+    docLinks.forEach((el) => {
+      const card = findDocCardContainer(el);
+      if (card) {
+        attachToDocumentCard(card);
+      }
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -632,19 +812,20 @@
       if (img.naturalWidth > 120 || img.width > 120) {
         attachToImage(img);
       } else {
-        img.addEventListener('load', () => {
-          if (img.naturalWidth > 120) {
-            attachToImage(img);
-          }
-        }, { once: true });
+        img.addEventListener(
+          'load',
+          () => {
+            if (img.naturalWidth > 120) {
+              attachToImage(img);
+            }
+          },
+          { once: true }
+        );
       }
     });
 
     // 3. Scan Google Docs cards, Drive chips, and document export links in AI chat
-    const docLinks = document.querySelectorAll(
-      'a[href*="docs.google.com/document"], a[href*="drive.google.com"], a[href*="docs.google.com/spreadsheets"], a[href*="docs.google.com/presentation"], [data-drive-id], [data-doc-id], drive-file-chip, doc-chip, [class*="drive-chip"], [class*="file-chip"]'
-    );
-    docLinks.forEach((el) => attachToDocumentCard(el));
+    scanDocumentCards();
   }
 
   // Initial scan

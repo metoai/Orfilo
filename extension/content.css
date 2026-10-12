@@ -58,11 +58,37 @@
 /* Placement on Document Cards & Chips in AI chat */
 .orfilo-save-btn.orfilo-btn-doc {
   display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
   margin-left: 8px !important;
   vertical-align: middle !important;
-  font-size: 11px !important;
-  padding: 5px 10px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 13px !important;
   border-radius: 9999px !important;
+  background-color: #161B22 !important;
+  border: 1px solid rgba(25, 169, 116, 0.45) !important;
+  color: #F0F6FC !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2) !important;
+  transition: all 0.15s ease-in-out !important;
+}
+
+.orfilo-save-btn.orfilo-btn-doc:hover {
+  background-color: #19A974 !important;
+  border-color: #19A974 !important;
+  color: #FFFFFF !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 2px 10px rgba(25, 169, 116, 0.4) !important;
+}
+
+.orfilo-save-btn.orfilo-btn-doc svg {
+  width: 13px !important;
+  height: 13px !important;
+  stroke: currentColor !important;
+  flex-shrink: 0 !important;
 }
 
 .orfilo-save-btn.orfilo-btn-doc-floating {

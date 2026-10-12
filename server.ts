@@ -507,6 +507,12 @@ export async function createServer() {
     const finalMetadata = {
       ...(typeof metadata === 'object' && metadata !== null ? metadata : {}),
       source_url: effectiveSourceUrl || undefined,
+      doc_url:
+        (metadata as any)?.doc_url ||
+        (body as any)?.doc_url ||
+        (effectiveSourceUrl && (effectiveSourceUrl.includes('google.com') || effectiveSourceUrl.includes('docs.'))
+          ? effectiveSourceUrl
+          : undefined),
       conversation_title: effectiveConvTitle || undefined,
       context_prompt: effectivePrompt || undefined,
       alt_text: effectiveAltText || undefined,
