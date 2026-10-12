@@ -451,6 +451,24 @@ export default function App() {
     return list;
   }, [artifacts, selectedProjectId, selectedSubfolder, typeFilter, searchQuery]);
 
+  // Subfolders and project artifacts for active project (must be called unconditionally before early returns)
+  const activeProject = projects.find((p) => p.id === selectedProjectId);
+
+  const projectArtifacts = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return artifacts.filter((a) => a.project_id === selectedProjectId);
+  }, [artifacts, selectedProjectId]);
+
+  const projectSubfolders = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const map = new Map<string, number>();
+    projectArtifacts.forEach((a) => {
+      const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
+      map.set(sub, (map.get(sub) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [projectArtifacts, selectedProjectId]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center">
@@ -503,23 +521,6 @@ export default function App() {
       />
     );
   }
-
-  const activeProject = projects.find((p) => p.id === selectedProjectId);
-
-  const projectArtifacts = useMemo(() => {
-    if (!selectedProjectId) return [];
-    return artifacts.filter((a) => a.project_id === selectedProjectId);
-  }, [artifacts, selectedProjectId]);
-
-  const projectSubfolders = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const map = new Map<string, number>();
-    projectArtifacts.forEach((a) => {
-      const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
-      map.set(sub, (map.get(sub) || 0) + 1);
-    });
-    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
-  }, [projectArtifacts, selectedProjectId]);
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#111111] flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
