@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Folder, Palette, Trash2, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Folder, Palette, Trash2, Check, AlertCircle, Loader2, X } from 'lucide-react';
 import { Project, User } from '../types/index.ts';
 import { db } from '../lib/supabase/db.ts';
 
@@ -48,7 +48,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 
   if (!isOpen) return null;
 
-  const colorOptions = ['#19A974', '#63E6B1', '#0B1320', '#2563EB', '#7C3AED', '#D97706'];
+  const colorOptions = ['#19A974', '#10B981', '#059669', '#2563EB', '#7C3AED', '#D97706', '#111111'];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,91 +111,102 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4">
-      <div className="bg-[#FAFAF8] border border-[#E7E7E4] rounded-2xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+      <div className="bg-white border border-neutral-200/80 rounded-2xl w-full max-w-md shadow-xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="px-5 sm:px-6 py-4 border-b border-[#E7E7E4] flex items-center justify-between bg-white shrink-0">
+        <div className="px-6 py-4 border-b border-neutral-100 flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2.5">
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-2xs"
               style={{ backgroundColor: color }}
             >
               <Folder className="w-4 h-4" />
             </div>
-            <h2 className="text-sm font-semibold text-[#111111]">
-              {projectToEdit ? 'Edit Project' : 'Create New Project'}
-            </h2>
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-900">
+                {projectToEdit ? 'Edit Project' : 'Create New Project'}
+              </h2>
+              <p className="text-[11px] text-neutral-500">First-class container for deliverables</p>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="text-neutral-400 hover:text-[#111111] p-1 rounded-lg"
+            className="text-neutral-400 hover:text-neutral-900 p-1.5 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
+            aria-label="Close dialog"
           >
-            ✕
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs overflow-y-auto">
           {errorMsg && (
-            <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 text-xs flex items-center gap-2">
+            <div className="bg-red-50/80 border border-red-200/80 text-red-800 rounded-xl p-3 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1">Project Name *</label>
+            <label className="block text-[11px] font-medium text-neutral-700 mb-1">
+              Project Name *
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Meto"
-              className="w-full px-3 py-2 border border-[#E7E7E4] rounded-xl bg-white text-xs focus:outline-none focus:border-[#19A974]"
+              placeholder="e.g. Habesha Model"
+              className="w-full px-3 py-2 border border-neutral-200/80 rounded-xl bg-white text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974] transition-all"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1">Description</label>
+            <label className="block text-[11px] font-medium text-neutral-700 mb-1">
+              Description
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="What are you creating with AI for this project?"
+              placeholder="What deliverables and topics belong to this project?"
               rows={3}
-              className="w-full px-3 py-2 border border-[#E7E7E4] rounded-xl bg-white text-xs focus:outline-none focus:border-[#19A974]"
+              className="w-full px-3 py-2 border border-neutral-200/80 rounded-xl bg-white text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974] transition-all"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1.5">Color Accent</label>
+            <label className="block text-[11px] font-medium text-neutral-700 mb-2">
+              Color Accent
+            </label>
             <div className="flex items-center gap-2">
               {colorOptions.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className={`w-7 h-7 rounded-full transition-transform cursor-pointer ${
-                    color === c ? 'scale-110 ring-2 ring-offset-2 ring-neutral-400' : 'hover:scale-105'
+                  className={`w-7 h-7 rounded-full transition-all cursor-pointer ${
+                    color === c ? 'scale-110 ring-2 ring-offset-2 ring-neutral-900' : 'hover:scale-105'
                   }`}
                   style={{ backgroundColor: c }}
+                  aria-label={`Select color ${c}`}
                 />
               ))}
             </div>
           </div>
 
           {projectToEdit && (
-            <div className="pt-3 border-t border-[#E7E7E4]">
+            <div className="pt-3 border-t border-neutral-100">
               {isDeleting ? (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-xs space-y-2">
-                  <span className="font-semibold text-red-950">Delete this project?</span>
-                  <p className="text-[11px] text-red-800">
-                    Artifacts in this project will remain in Orfilo as unassigned.
+                <div className="bg-red-50/80 border border-red-200/80 rounded-xl p-3 text-xs space-y-2">
+                  <span className="font-semibold text-red-900">Delete this project?</span>
+                  <p className="text-[11px] text-red-700">
+                    Deliverables will remain in your workspace as unassigned.
                   </p>
                   <div className="flex gap-2 justify-end">
                     <button
                       type="button"
                       onClick={() => setIsDeleting(false)}
-                      className="px-2.5 py-1 text-xs text-neutral-600 hover:text-black"
+                      className="px-2.5 py-1 text-xs text-neutral-600 hover:text-black cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -215,33 +226,36 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   onClick={() => setIsDeleting(true)}
                   className="text-xs text-red-600 hover:underline flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete this project
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete this project</span>
                 </button>
               )}
             </div>
           )}
 
           {/* Footer Actions */}
-          <div className="pt-4 flex items-center justify-end gap-2">
+          <div className="pt-4 flex items-center justify-end gap-2 border-t border-neutral-100">
             <button
               type="button"
               onClick={onClose}
-              className="px-3.5 py-2 text-xs text-[#6B6B6B] hover:text-[#111111]"
+              className="px-3.5 py-2 text-xs text-neutral-600 hover:text-neutral-900 rounded-xl cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isProcessing}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium transition-colors cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
             >
               {isProcessing ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-3.5 h-3.5" /> {projectToEdit ? 'Save Changes' : 'Create Project'}
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{projectToEdit ? 'Save Changes' : 'Create Project'}</span>
                 </>
               )}
             </button>

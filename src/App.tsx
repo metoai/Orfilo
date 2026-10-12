@@ -5,38 +5,28 @@ import {
   Layers,
   Search,
   Activity,
-  HardDrive,
   Settings,
   Plus,
   Puzzle,
   Zap,
-  Cpu,
-  Workflow,
-  Compass,
   FolderInput,
-  ArrowRight,
+  FolderOpen,
+  FolderPlus,
   ExternalLink,
   ShieldCheck,
   AlertTriangle,
   LogOut,
   User as UserIcon,
-  Filter,
-  FileText,
-  Image as ImageIcon,
-  Code as CodeIcon,
   ChevronRight,
-  Database,
   RefreshCw,
-  SlidersHorizontal,
-  FolderPlus,
-  FolderOpen,
-  GripVertical,
   Clock,
   Eye,
   CheckCircle,
-  HelpCircle,
   LogIn,
   Download,
+  Sparkles,
+  Command,
+  X,
 } from 'lucide-react';
 import { OrfiloBrand, OrfiloIcon } from './components/OrfiloBrand.tsx';
 import { UploadArtifactModal } from './components/UploadArtifactModal.tsx';
@@ -53,8 +43,10 @@ import { createBrowserClient } from './lib/supabase/client.ts';
 import { Project, Artifact, FileEvent, User } from './types/index.ts';
 
 type NavigationTab = 'home' | 'projects' | 'artifacts' | 'activity' | 'settings' | 'landing';
+type DeliverableType = 'all' | 'images' | 'documents' | 'presentations' | 'code';
 
 export default function App() {
+  // 1. Core State
   const [activeTab, setActiveTab] = useState<NavigationTab>('home');
   const [user, setUser] = useState<User | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -63,13 +55,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // Search & Filters
+  // 2. Navigation, Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'images' | 'documents' | 'presentations' | 'code'>('all');
+  const [typeFilter, setTypeFilter] = useState<DeliverableType>('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedSubfolder, setSelectedSubfolder] = useState<string | null>(null);
 
-  // Modals & Drawers
+  // 3. Modals & Dialogs
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [projectToEdit, setProjectToEdit] = useState<Project | null>(null);
@@ -78,16 +70,32 @@ export default function App() {
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
   const [isExtensionPairModalOpen, setIsExtensionPairModalOpen] = useState(false);
 
+  // 4. Drag & Drop & Toast
+  const [draggingArtifact, setDraggingArtifact] = useState<Artifact | null>(null);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [moveToast, setMoveToast] = useState<{
+    id: string;
+    message: string;
+    artifactName: string;
+    targetProjectName: string;
+    previousProjectId: string | null;
+    previousPath: string | null;
+    artifactId: string;
+  } | null>(null);
+
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Global Keyboard Shortcuts (⌘K / / to search, Esc to close modals)
+  // 5. Global Keyboard Shortcuts (⌘K to focus search, Esc to dismiss modals)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         searchInputRef.current?.focus();
       } else if (e.key === '/') {
-        if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+        if (
+          document.activeElement?.tagName !== 'INPUT' &&
+          document.activeElement?.tagName !== 'TEXTAREA'
+        ) {
           e.preventDefault();
           searchInputRef.current?.focus();
         }
@@ -103,7 +111,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Handle URL Action Parameters (e.g., from Chrome Extension Auth Gate)
+  // 6. Handle Extension URL Actions
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
@@ -132,19 +140,143 @@ export default function App() {
     }
   }, [user]);
 
-  // Drag and Drop Artifacts to Sidebar Project Folders
-  const [draggingArtifact, setDraggingArtifact] = useState<Artifact | null>(null);
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
-  const [moveToast, setMoveToast] = useState<{
-    id: string;
-    message: string;
-    artifactName: string;
-    targetProjectName: string;
-    previousProjectId: string | null;
-    previousPath: string | null;
-    artifactId: string;
-  } | null>(null);
+  // 7. Load Workspace Data
+  const loadWorkspaceData = async () => {
+    setIsLoading(true);
+    setGlobalError(null);
+    try {
+      const currentUser = await db.getCurrentUser();
+      setUser(currentUser);
 
+      if (currentUser) {
+        const [projList, artList, eventList] = await Promise.all([
+          db.getProjects().catch(() => []),
+          db.getArtifacts().catch(() => []),
+          db.getEvents().catch(() => []),
+        ]);
+        setProjects(projList);
+        setArtifacts(artList);
+        setEvents(eventList);
+      } else {
+        setProjects([]);
+        setArtifacts([]);
+        setEvents([]);
+      }
+    } catch (err: any) {
+      console.warn('[Orfilo] Data loading warning:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadWorkspaceData();
+
+    const client = createBrowserClient();
+    if (client) {
+      const {
+        data: { subscription },
+      } = client.auth.onAuthStateChange(async (_event, session) => {
+        if (session?.user) {
+          const profile: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name:
+              session.user.user_metadata?.full_name ||
+              session.user.user_metadata?.name ||
+              session.user.email?.split('@')[0] ||
+              'User',
+            avatar_url: session.user.user_metadata?.avatar_url || null,
+            created_at: session.user.created_at,
+            updated_at: new Date().toISOString(),
+          };
+          setUser(profile);
+
+          const [projList, artList, eventList] = await Promise.all([
+            db.getProjects().catch(() => []),
+            db.getArtifacts().catch(() => []),
+            db.getEvents().catch(() => []),
+          ]);
+          setProjects(projList);
+          setArtifacts(artList);
+          setEvents(eventList);
+        } else {
+          setUser(null);
+          setProjects([]);
+          setArtifacts([]);
+          setEvents([]);
+        }
+        setIsLoading(false);
+      });
+
+      const onFocus = () => loadWorkspaceData();
+      window.addEventListener('focus', onFocus);
+
+      return () => {
+        subscription.unsubscribe();
+        window.removeEventListener('focus', onFocus);
+      };
+    }
+  }, []);
+
+  const handleSignOut = async () => {
+    const client = createBrowserClient();
+    if (client) {
+      await client.auth.signOut();
+    }
+    setUser(null);
+    setProjects([]);
+    setArtifacts([]);
+    setEvents([]);
+    setActiveTab('home');
+  };
+
+  // 8. Deliverable & Project Handlers
+  const handleArtifactCreated = (newArt: Artifact) => {
+    setArtifacts((prev) => [newArt, ...prev]);
+    db.getEvents().then(setEvents);
+    db.getProjects().then(setProjects);
+  };
+
+  const handleArtifactUpdated = (updatedArt: Artifact) => {
+    setArtifacts((prev) => prev.map((a) => (a.id === updatedArt.id ? updatedArt : a)));
+    if (selectedArtifact?.id === updatedArt.id) {
+      setSelectedArtifact(updatedArt);
+    }
+    db.getEvents().then(setEvents);
+    db.getProjects().then(setProjects);
+  };
+
+  const handleArtifactDeleted = (deletedId: string) => {
+    setArtifacts((prev) => prev.filter((a) => a.id !== deletedId));
+    if (selectedArtifact?.id === deletedId) {
+      setSelectedArtifact(null);
+    }
+    db.getEvents().then(setEvents);
+    db.getProjects().then(setProjects);
+  };
+
+  const handleProjectSaved = (savedProj: Project) => {
+    setProjects((prev) => {
+      const exists = prev.some((p) => p.id === savedProj.id);
+      if (exists) {
+        return prev.map((p) => (p.id === savedProj.id ? savedProj : p));
+      }
+      return [savedProj, ...prev];
+    });
+  };
+
+  const handleProjectDeleted = (deletedId: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== deletedId));
+    if (selectedProjectId === deletedId) {
+      setSelectedProjectId(null);
+    }
+    setArtifacts((prev) =>
+      prev.map((a) => (a.project_id === deletedId ? { ...a, project_id: null, project: undefined } : a))
+    );
+  };
+
+  // 9. Drag & Drop Move Handlers
   const handleDragStart = (_e: React.DragEvent, artifact: Artifact) => {
     setDraggingArtifact(artifact);
   };
@@ -169,7 +301,7 @@ export default function App() {
         previousPath: null,
         artifactId: artifact.id,
       });
-      setTimeout(() => setMoveToast(null), 3500);
+      setTimeout(() => setMoveToast(null), 3000);
       return;
     }
 
@@ -177,7 +309,6 @@ export default function App() {
     const previousPath = artifact.provider_path || null;
     const newLocationPath = `${targetProject.name} / ${artifact.metadata?.category || 'General'}`;
 
-    // Optimistically update
     const updated: Artifact = {
       ...artifact,
       project_id: targetProjectId,
@@ -216,8 +347,7 @@ export default function App() {
         setMoveToast((curr) => (curr?.artifactId === artifactId ? null : curr));
       }, 5000);
     } catch (err: any) {
-      console.error('[Orfilo] Move artifact error:', err);
-      // Revert optimistic update
+      console.error('[Orfilo] Move error:', err);
       setArtifacts((prev) => prev.map((a) => (a.id === artifactId ? artifact : a)));
       setGlobalError('Could not move artifact: ' + (err.message || 'Unknown error'));
     }
@@ -262,152 +392,26 @@ export default function App() {
     }
   };
 
-  // Load initial workspace data from Supabase backend
-  const loadWorkspaceData = async () => {
-    setIsLoading(true);
-    setGlobalError(null);
-    try {
-      const currentUser = await db.getCurrentUser();
-      setUser(currentUser);
+  // 10. Memoized Queries & Filters
+  const activeProject = useMemo(() => {
+    return projects.find((p) => p.id === selectedProjectId) || null;
+  }, [projects, selectedProjectId]);
 
-      if (currentUser) {
-        const [projList, artList, eventList] = await Promise.all([
-          db.getProjects().catch((err) => {
-            console.error('Failed to load projects:', err);
-            return [];
-          }),
-          db.getArtifacts().catch((err) => {
-            console.error('Failed to load artifacts:', err);
-            return [];
-          }),
-          db.getEvents().catch((err) => {
-            console.error('Failed to load events:', err);
-            return [];
-          }),
-        ]);
+  const projectArtifacts = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return artifacts.filter((a) => a.project_id === selectedProjectId);
+  }, [artifacts, selectedProjectId]);
 
-        setProjects(projList);
-        setArtifacts(artList);
-        setEvents(eventList);
-      } else {
-        setProjects([]);
-        setArtifacts([]);
-        setEvents([]);
-      }
-    } catch (err: any) {
-      console.warn('Workspace data loading error:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadWorkspaceData();
-
-    const client = createBrowserClient();
-    if (client) {
-      const { data: { subscription } } = client.auth.onAuthStateChange(async (_event, session) => {
-        if (session?.user) {
-          const profile: User = {
-            id: session.user.id,
-            email: session.user.email || '',
-            name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User',
-            avatar_url: session.user.user_metadata?.avatar_url || null,
-            created_at: session.user.created_at,
-            updated_at: new Date().toISOString(),
-          };
-          setUser(profile);
-
-          const [projList, artList, eventList] = await Promise.all([
-            db.getProjects().catch(() => []),
-            db.getArtifacts().catch(() => []),
-            db.getEvents().catch(() => []),
-          ]);
-          setProjects(projList);
-          setArtifacts(artList);
-          setEvents(eventList);
-        } else {
-          setUser(null);
-          setProjects([]);
-          setArtifacts([]);
-          setEvents([]);
-        }
-        setIsLoading(false);
-      });
-
-      const onFocus = () => {
-        loadWorkspaceData();
-      };
-      window.addEventListener('focus', onFocus);
-
-      return () => {
-        subscription.unsubscribe();
-        window.removeEventListener('focus', onFocus);
-      };
-    }
-  }, []);
-
-  const handleSignOut = async () => {
-    const client = createBrowserClient();
-    if (client) {
-      await client.auth.signOut();
-    }
-    setUser(null);
-    setProjects([]);
-    setArtifacts([]);
-    setEvents([]);
-    setActiveTab('home');
-  };
-
-  // Handlers for real DB persistence
-  const handleArtifactCreated = (newArt: Artifact) => {
-    setArtifacts((prev) => [newArt, ...prev]);
-    // Refresh events to show "saved" & "organized"
-    db.getEvents().then(setEvents);
-    // Refresh project counts
-    db.getProjects().then(setProjects);
-  };
-
-  const handleArtifactUpdated = (updatedArt: Artifact) => {
-    setArtifacts((prev) => prev.map((a) => (a.id === updatedArt.id ? updatedArt : a)));
-    if (selectedArtifact?.id === updatedArt.id) {
-      setSelectedArtifact(updatedArt);
-    }
-    db.getEvents().then(setEvents);
-    db.getProjects().then(setProjects);
-  };
-
-  const handleArtifactDeleted = (deletedId: string) => {
-    setArtifacts((prev) => prev.filter((a) => a.id !== deletedId));
-    if (selectedArtifact?.id === deletedId) {
-      setSelectedArtifact(null);
-    }
-    db.getEvents().then(setEvents);
-    db.getProjects().then(setProjects);
-  };
-
-  const handleProjectSaved = (savedProj: Project) => {
-    setProjects((prev) => {
-      const exists = prev.some((p) => p.id === savedProj.id);
-      if (exists) {
-        return prev.map((p) => (p.id === savedProj.id ? savedProj : p));
-      }
-      return [savedProj, ...prev];
+  const projectSubfolders = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const map = new Map<string, number>();
+    projectArtifacts.forEach((a) => {
+      const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
+      map.set(sub, (map.get(sub) || 0) + 1);
     });
-  };
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [projectArtifacts, selectedProjectId]);
 
-  const handleProjectDeleted = (deletedId: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== deletedId));
-    if (selectedProjectId === deletedId) {
-      setSelectedProjectId(null);
-    }
-    // Artifacts in this project become unassigned
-    setArtifacts((prev) =>
-      prev.map((a) => (a.project_id === deletedId ? { ...a, project_id: null, project: undefined } : a))
-    );
-  };
-
-  // Filtered Artifacts for display
   const filteredArtifacts = useMemo(() => {
     let list = artifacts;
 
@@ -424,10 +428,11 @@ export default function App() {
 
     if (typeFilter !== 'all') {
       list = list.filter((a) => {
-        if (typeFilter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(a.extension);
-        if (typeFilter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes(a.extension.toLowerCase());
-        if (typeFilter === 'presentations') return ['pptx', 'key'].includes(a.extension);
-        if (typeFilter === 'code') return ['ts', 'tsx', 'js', 'json', 'py', 'sql'].includes(a.extension);
+        const ext = (a.extension || '').toLowerCase();
+        if (typeFilter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(ext);
+        if (typeFilter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes(ext);
+        if (typeFilter === 'presentations') return ['pptx', 'ppt', 'key'].includes(ext);
+        if (typeFilter === 'code') return ['ts', 'tsx', 'js', 'json', 'py', 'sql', 'html', 'css'].includes(ext);
         return true;
       });
     }
@@ -451,38 +456,21 @@ export default function App() {
     return list;
   }, [artifacts, selectedProjectId, selectedSubfolder, typeFilter, searchQuery]);
 
-  // Subfolders and project artifacts for active project (must be called unconditionally before early returns)
-  const activeProject = projects.find((p) => p.id === selectedProjectId);
-
-  const projectArtifacts = useMemo(() => {
-    if (!selectedProjectId) return [];
-    return artifacts.filter((a) => a.project_id === selectedProjectId);
-  }, [artifacts, selectedProjectId]);
-
-  const projectSubfolders = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const map = new Map<string, number>();
-    projectArtifacts.forEach((a) => {
-      const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
-      map.set(sub, (map.get(sub) || 0) + 1);
-    });
-    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
-  }, [projectArtifacts, selectedProjectId]);
-
+  // Loading Screen
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAFAF8] flex items-center justify-center">
+      <div className="min-h-screen bg-[#FAFAF9] flex items-center justify-center antialiased">
         <div className="flex flex-col items-center gap-3">
-          <OrfiloIcon size={44} />
-          <div className="flex items-center gap-2 text-xs text-[#6B6B6B] mt-2 font-mono">
-            <span>Loading Orfilo workspace...</span>
+          <OrfiloIcon size={36} />
+          <div className="flex items-center gap-2 text-xs text-neutral-500 font-mono">
+            <span>Loading workspace...</span>
           </div>
         </div>
       </div>
     );
   }
 
-  // 1. If unauthenticated, the first page is the Landing Page
+  // Unauthenticated -> Landing Page
   if (!user) {
     return (
       <>
@@ -510,7 +498,7 @@ export default function App() {
     );
   }
 
-  // 2. If authenticated and selected Landing Page preview
+  // Landing Page Preview for logged-in users
   if (activeTab === 'landing') {
     return (
       <LandingPageView
@@ -523,10 +511,10 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] text-[#111111] flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
+    <div className="min-h-screen bg-[#FAFAF9] text-neutral-900 flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
       {/* Global Error Banner */}
       {globalError && (
-        <aside aria-label="Global System Error" className="bg-red-50 border-b border-red-200 px-4 py-2 text-xs text-red-800 flex items-center justify-between shrink-0">
+        <aside aria-label="Global Error" className="bg-red-50 border-b border-red-200/80 px-4 py-2 text-xs text-red-800 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
             <span>{globalError}</span>
@@ -537,63 +525,136 @@ export default function App() {
         </aside>
       )}
 
+      {/* Main Top Header Bar (Better Auth Style) */}
+      <header className="h-14 border-b border-neutral-200/80 bg-white px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              setSelectedProjectId(null);
+              setSelectedSubfolder(null);
+              setActiveTab('home');
+            }}
+            className="flex items-center gap-2 cursor-pointer text-left"
+          >
+            <OrfiloIcon size={24} />
+            <span className="font-semibold text-sm tracking-tight text-neutral-900">Orfilo</span>
+          </button>
+
+          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60 hidden sm:inline-block">
+            v2.0
+          </span>
+        </div>
+
+        {/* Center Search / Command Bar */}
+        <div className="flex-1 max-w-md mx-4 hidden sm:block">
+          <div className="relative flex items-center">
+            <Search className="w-3.5 h-3.5 absolute left-3 text-neutral-400" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search deliverables, projects, subfolders..."
+              className="w-full pl-8 pr-12 py-1.5 bg-neutral-100/70 hover:bg-neutral-100 focus:bg-white border border-neutral-200/70 focus:border-[#19A974] rounded-xl text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-[#19A974] transition-all"
+            />
+            <div className="absolute right-2.5 flex items-center gap-1">
+              {searchQuery ? (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="text-neutral-400 hover:text-neutral-900 p-0.5 cursor-pointer text-xs"
+                >
+                  ✕
+                </button>
+              ) : (
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono text-neutral-400 bg-white border border-neutral-200 rounded shadow-2xs">
+                  ⌘K
+                </kbd>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Action Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsExtensionPairModalOpen(true)}
+            className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
+            title="Pair Extension"
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+            <Puzzle className="w-3.5 h-3.5 text-neutral-500" />
+            <span>Extension</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setProjectToEdit(null);
+              setIsProjectModalOpen(true);
+            }}
+            className="hidden lg:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-neutral-200/80 bg-white hover:bg-neutral-50 text-xs font-medium text-neutral-700 transition-colors cursor-pointer shadow-2xs"
+          >
+            <FolderPlus className="w-3.5 h-3.5" />
+            <span>New Project</span>
+          </button>
+
+          <button
+            onClick={() => setIsUploadOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Artifact</span>
+          </button>
+
+          {/* User Profile Pill */}
+          <div className="ml-1 pl-2 border-l border-neutral-200/80 flex items-center">
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="w-7 h-7 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-xs cursor-pointer shadow-2xs"
+              title={user.email}
+            >
+              {user.name ? user.name[0].toUpperCase() : 'U'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Workspace Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop Sidebar Navigation */}
-        <aside className="w-64 border-r border-[#E7E7E4] bg-white flex flex-col justify-between shrink-0 hidden md:flex">
-          <div className="p-5 space-y-6">
-            {/* Brand Logo */}
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setActiveTab('home');
-                }}
-                className="text-left cursor-pointer"
-              >
-                <OrfiloBrand variant="horizontal" size="md" showTagline={false} />
-              </button>
-            </div>
-
-            {/* Quick persistent Action: + Add artifact */}
-            <button
-              onClick={() => setIsUploadOpen(true)}
-              className="w-full py-2.5 px-3 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add artifact</span>
-            </button>
-
-            {/* Navigation Links */}
+        <aside className="w-60 border-r border-neutral-200/80 bg-white flex flex-col justify-between shrink-0 hidden md:flex">
+          <div className="p-4 space-y-5 overflow-y-auto">
+            {/* Primary Nav Links (Better Auth Segmented Style) */}
             <nav className="space-y-1 text-xs">
               <button
                 onClick={() => {
                   setSelectedProjectId(null);
+                  setSelectedSubfolder(null);
                   setActiveTab('home');
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
                   activeTab === 'home' && !selectedProjectId
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
+                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                 }`}
               >
-                <Home className="w-4 h-4" />
+                <Home className="w-4 h-4 text-neutral-500" />
                 <span>Home</span>
               </button>
-
 
               <button
                 onClick={() => {
                   setSelectedProjectId(null);
+                  setSelectedSubfolder(null);
                   setActiveTab('projects');
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                  activeTab === 'projects'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
+                  activeTab === 'projects' && !selectedProjectId
+                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Folder className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <Folder className="w-4 h-4 text-neutral-500" />
                   <span>Projects</span>
                 </div>
                 <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
@@ -604,16 +665,17 @@ export default function App() {
               <button
                 onClick={() => {
                   setSelectedProjectId(null);
+                  setSelectedSubfolder(null);
                   setActiveTab('artifacts');
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
                   activeTab === 'artifacts'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
+                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Layers className="w-4 h-4" />
+                <div className="flex items-center gap-2.5">
+                  <Layers className="w-4 h-4 text-neutral-500" />
                   <span>All Artifacts</span>
                 </div>
                 <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-600">
@@ -624,417 +686,226 @@ export default function App() {
               <button
                 onClick={() => {
                   setSelectedProjectId(null);
+                  setSelectedSubfolder(null);
                   setActiveTab('activity');
                 }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl font-medium transition-all cursor-pointer ${
                   activeTab === 'activity'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
+                    ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
                 }`}
               >
-                <Activity className="w-4 h-4" />
+                <Activity className="w-4 h-4 text-neutral-500" />
                 <span>Activity</span>
               </button>
-
-              {/* Specific Project Folders (Drag & Drop targets) */}
-              <div className="pt-3 border-t border-[#E7E7E4]/70">
-                <div className="flex items-center justify-between px-3 py-1 mb-1 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
-                  <div className="flex items-center gap-1.5">
-                    <span>Project Folders</span>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setProjectToEdit(null);
-                      setIsProjectModalOpen(true);
-                    }}
-                    className="p-1 rounded-md hover:bg-neutral-100 text-neutral-400 hover:text-[#111111] transition-colors"
-                    title="Create new project folder"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                </div>
-
-                {draggingArtifact && (
-                  <div className="mx-1 mb-1.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-[10px] text-emerald-700 font-medium flex items-center gap-1.5 animate-pulse">
-                    <FolderInput className="w-3 h-3 shrink-0" />
-                    <span className="truncate">Drop into folder to move</span>
-                  </div>
-                )}
-
-                <div className="space-y-1 max-h-52 overflow-y-auto pr-0.5">
-                  {projects.map((proj) => {
-                    const isSelected = selectedProjectId === proj.id;
-                    const isDragOver = dragOverFolderId === proj.id;
-                    const isArtifactInThis = draggingArtifact?.project_id === proj.id;
-                    const count = artifacts.filter((a) => a.project_id === proj.id).length;
-
-                    return (
-                      <div key={proj.id} className="space-y-0.5">
-                        <div
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.dataTransfer.dropEffect = 'move';
-                          }}
-                          onDragEnter={(e) => {
-                            e.preventDefault();
-                            setDragOverFolderId(proj.id);
-                          }}
-                          onDragLeave={(e) => {
-                            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                              if (dragOverFolderId === proj.id) {
-                                setDragOverFolderId(null);
-                              }
-                            }
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            setDragOverFolderId(null);
-                            const artifactId = e.dataTransfer.getData('text/plain');
-                            if (artifactId) {
-                              handleDropArtifactOnProject(artifactId, proj.id);
-                            }
-                          }}
-                          onClick={() => {
-                            if (selectedProjectId !== proj.id) {
-                              setSelectedSubfolder(null);
-                            }
-                            setSelectedProjectId(proj.id);
-                            setActiveTab('projects');
-                          }}
-                          className={`w-full group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
-                            isDragOver
-                              ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] scale-[1.02] shadow-sm font-semibold'
-                              : draggingArtifact
-                              ? isArtifactInThis
-                                ? 'border border-dashed border-neutral-200 bg-neutral-50/50 text-neutral-400 opacity-60'
-                                : 'border border-dashed border-[#19A974]/60 bg-emerald-50/30 hover:bg-[#E8F7F0] text-[#111111]'
-                              : isSelected
-                              ? 'bg-[#E8F7F0] text-[#19A974] font-semibold'
-                              : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <div
-                              className={`w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 transition-transform ${
-                                isDragOver ? 'scale-110' : ''
-                              }`}
-                              style={{ backgroundColor: proj.color || '#19A974' }}
-                            >
-                              {isDragOver ? (
-                                <FolderOpen className="w-3 h-3" />
-                              ) : (
-                                <Folder className="w-3 h-3" />
-                              )}
-                            </div>
-                            <span className="truncate">{proj.name}</span>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {isDragOver ? (
-                              <span className="text-[10px] font-bold text-[#19A974] bg-white px-1.5 py-0.5 rounded shadow-xs animate-bounce">
-                                Move here
-                              </span>
-                            ) : (
-                              <span
-                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                  isSelected
-                                    ? 'bg-[#19A974]/20 text-[#19A974]'
-                                    : 'bg-neutral-100 text-neutral-500'
-                                }`}
-                              >
-                                {count}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Nested Subfolders in sidebar */}
-                        {isSelected && projectSubfolders.length > 0 && (
-                          <div className="ml-5 my-1 pl-2 border-l-2 border-[#19A974]/30 space-y-0.5">
-                            {projectSubfolders.map(({ name: subName, count: subCount }) => {
-                              const isSubActive = selectedSubfolder === subName;
-                              return (
-                                <div
-                                  key={subName}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setSelectedSubfolder(isSubActive ? null : subName);
-                                    setActiveTab('projects');
-                                  }}
-                                  className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-colors cursor-pointer ${
-                                    isSubActive
-                                      ? 'bg-[#19A974] text-white font-semibold shadow-2xs'
-                                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-1.5 truncate">
-                                    <Folder className={`w-3 h-3 shrink-0 ${isSubActive ? 'text-white' : 'text-[#19A974]'}`} />
-                                    <span className="truncate">{subName}</span>
-                                  </div>
-                                  <span
-                                    className={`text-[9px] font-mono px-1 rounded ${
-                                      isSubActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
-                                    }`}
-                                  >
-                                    {subCount}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {projects.length === 0 && (
-                    <div className="px-3 py-2 text-[11px] text-neutral-400 italic">
-                      No project folders yet
-                    </div>
-                  )}
-                </div>
-              </div>
             </nav>
 
-            <div className="border-t border-[#E7E7E4] pt-4 space-y-1 text-xs">
-              {/* Chrome Extension Companion */}
-              <button
-                onClick={() => setIsExtensionPairModalOpen(true)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded-xl font-medium transition-all cursor-pointer text-[#111111] hover:bg-neutral-100 group border border-neutral-200/80 bg-white hover:border-[#19A974]/40 my-1 shadow-2xs"
-                title="Download and install Orfilo Chrome Extension"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Download className="w-4 h-4 text-[#19A974]" />
-                  <span className="font-semibold text-xs">Extension</span>
-                </div>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-[#E8F7F0] text-[#19A974] group-hover:bg-[#19A974] group-hover:text-white transition-colors">
-                  Install
-                </span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('settings')}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl font-medium transition-colors cursor-pointer ${
-                  activeTab === 'settings'
-                    ? 'bg-[#E8F7F0] text-[#19A974]'
-                    : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                <span>Settings</span>
-              </button>
-            </div>
-          </div>
-
-          {/* User Account / Auth at Bottom */}
-          <div className="p-4 border-t border-[#E7E7E4] bg-neutral-50/50 space-y-2">
-            {user ? (
-              <>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-[#111111] text-white flex items-center justify-center font-medium text-xs shrink-0">
-                      {user.name ? user.name[0].toUpperCase() : 'U'}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-[#111111] truncate flex items-center gap-1.5">
-                        <span className="truncate">{user.name}</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#19A974] shrink-0" title="Active session" />
-                      </div>
-                      <div className="text-[10px] text-[#6B6B6B] font-mono truncate">
-                        {user.email}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="text-neutral-400 hover:text-[#111111] p-1.5 rounded-lg cursor-pointer"
-                    title="Account Settings"
-                  >
-                    <UserIcon className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between pt-2 border-t border-[#E7E7E4]/50 text-[11px] text-[#6B6B6B]">
-                  <button
-                    onClick={() => setActiveTab('landing')}
-                    className="hover:text-[#111111] underline cursor-pointer"
-                  >
-                    Landing Page
-                  </button>
-                  <button
-                    onClick={handleSignOut}
-                    className="hover:text-red-600 flex items-center gap-1 cursor-pointer"
-                  >
-                    <LogOut className="w-3 h-3" />
-                    <span>Sign out</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-2">
+            {/* Project Folders Tree with Drag & Drop */}
+            <div className="pt-3 border-t border-neutral-100">
+              <div className="flex items-center justify-between px-2 py-1 mb-1 text-[10px] font-semibold text-neutral-400 uppercase tracking-wider font-mono">
+                <span>Project Folders</span>
                 <button
                   onClick={() => {
-                    setAuthModalMode('signin');
-                    setIsAuthModalOpen(true);
+                    setProjectToEdit(null);
+                    setIsProjectModalOpen(true);
                   }}
-                  className="w-full py-2 px-3 bg-[#111111] hover:bg-neutral-800 text-white rounded-xl text-xs font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="p-1 rounded hover:bg-neutral-100 text-neutral-400 hover:text-neutral-900 cursor-pointer"
+                  title="Create Project"
                 >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
+                  <Plus className="w-3 h-3" />
                 </button>
               </div>
-            )}
-          </div>
-        </aside>
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-y-auto">
-          {/* Top Bar on Mobile */}
-          <header className="px-4 py-2.5 border-b border-[#E7E7E4] bg-white flex md:hidden items-center justify-between shrink-0 sticky top-0 z-30">
-            <div className="flex items-center gap-2 min-w-0">
-              {selectedProjectId ? (
-                <button
-                  onClick={() => setSelectedProjectId(null)}
-                  className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-[#111111] rounded-xl text-xs font-semibold flex items-center gap-1 cursor-pointer shrink-0"
-                >
-                  <span>← All</span>
-                </button>
-              ) : null}
-              <button
-                onClick={() => {
-                  setSelectedProjectId(null);
-                  setActiveTab('home');
-                }}
-                className="cursor-pointer truncate"
-              >
-                <OrfiloBrand variant="horizontal" size="sm" showTagline={false} />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={() => setIsExtensionPairModalOpen(true)}
-                className="p-2 bg-emerald-50 text-emerald-700 border border-emerald-200/80 rounded-xl text-xs font-medium cursor-pointer"
-                title="Pair Companion Extension"
-                aria-label="Pair Companion Extension"
-              >
-                <Zap className="w-4 h-4" />
-              </button>
-              {user ? (
-                <button
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="w-8 h-8 rounded-full bg-[#111111] text-white flex items-center justify-center font-bold text-xs cursor-pointer"
-                  title={user.name || 'Account'}
-                >
-                  {user.name ? user.name[0].toUpperCase() : 'U'}
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setAuthModalMode('signin');
-                    setIsAuthModalOpen(true);
-                  }}
-                  className="px-2.5 py-1.5 bg-[#111111] text-white rounded-xl text-xs font-semibold cursor-pointer"
-                >
-                  Sign In
-                </button>
-              )}
-            </div>
-          </header>
-
-          <main className="p-4 sm:p-6 md:p-10 pb-28 md:pb-10 max-w-6xl mx-auto w-full space-y-6 sm:space-y-8">
-            {/* View: Home */}
-            {activeTab === 'home' && !selectedProjectId && (
-              <div className="space-y-8">
-                {/* Greeting & Subtitle */}
-                <div>
-                  <h1 className="text-2xl font-bold tracking-tight text-[#111111]">
-                    Good morning, {user?.name || 'Meto'}
-                  </h1>
-                  <p className="text-xs text-[#6B6B6B] mt-1">
-                    Everything your AI creates. Organized.
-                  </p>
+              {draggingArtifact && (
+                <div className="mx-1 mb-1.5 px-2 py-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-[10px] text-emerald-800 font-medium flex items-center gap-1.5 animate-pulse">
+                  <FolderInput className="w-3 h-3 shrink-0" />
+                  <span className="truncate">Drop into folder to move</span>
                 </div>
+              )}
 
-                {/* Large Search Input with AI Assistance */}
-                <div className="space-y-3">
-                  <div className="relative flex items-center">
-                    <Search className="w-4 h-4 absolute left-4 text-neutral-400" />
-                    <input
-                      ref={searchInputRef}
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search artifacts by name, project, extension... (Press ⌘K or / to focus)"
-                      className="w-full pl-11 pr-10 py-3 bg-white border border-[#E7E7E4] hover:border-neutral-400 focus:border-[#19A974] rounded-2xl text-xs text-[#111111] placeholder:text-neutral-400 shadow-xs focus:outline-none transition-all"
-                    />
-                    {searchQuery && (
-                      <div className="absolute right-3 flex items-center">
-                        <button
-                          onClick={() => setSearchQuery('')}
-                          className="text-xs text-neutral-400 hover:text-black p-1 cursor-pointer"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
-                  </div>
+              <div className="space-y-0.5 max-h-56 overflow-y-auto pr-0.5">
+                {projects.map((proj) => {
+                  const isSelected = selectedProjectId === proj.id;
+                  const isDragOver = dragOverFolderId === proj.id;
+                  const count = artifacts.filter((a) => a.project_id === proj.id).length;
 
-                  {/* Mobile Quick Project Folder Pills Strip */}
-                  <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar text-xs">
-                    <button
-                      onClick={() => setSelectedProjectId(null)}
-                      className={`px-3 py-1.5 rounded-xl font-medium shrink-0 transition-colors cursor-pointer ${
-                        !selectedProjectId
-                          ? 'bg-[#111111] text-white shadow-xs'
-                          : 'bg-white border border-[#E7E7E4] text-[#6B6B6B] hover:text-[#111111]'
-                      }`}
-                    >
-                      All Artifacts ({artifacts.length})
-                    </button>
-                    {projects.map((proj) => {
-                      const count = artifacts.filter((a) => a.project_id === proj.id).length;
-                      return (
-                        <button
-                          key={proj.id}
-                          onClick={() => setSelectedProjectId(proj.id)}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-colors cursor-pointer ${
-                            selectedProjectId === proj.id
-                              ? 'border-[#19A974] bg-[#E8F7F0] text-[#19A974] font-semibold'
-                              : 'border-[#E7E7E4] bg-white text-[#6B6B6B] hover:text-[#111111]'
-                          }`}
-                        >
+                  return (
+                    <div key={proj.id} className="space-y-0.5">
+                      <div
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                        }}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          setDragOverFolderId(proj.id);
+                        }}
+                        onDragLeave={(e) => {
+                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                            if (dragOverFolderId === proj.id) {
+                              setDragOverFolderId(null);
+                            }
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          setDragOverFolderId(null);
+                          const artifactId = e.dataTransfer.getData('text/plain');
+                          if (artifactId) {
+                            handleDropArtifactOnProject(artifactId, proj.id);
+                          }
+                        }}
+                        onClick={() => {
+                          if (selectedProjectId !== proj.id) {
+                            setSelectedSubfolder(null);
+                          }
+                          setSelectedProjectId(proj.id);
+                          setActiveTab('projects');
+                        }}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
+                          isDragOver
+                            ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] font-semibold'
+                            : isSelected
+                            ? 'bg-neutral-100 text-neutral-900 font-semibold'
+                            : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
                           <span
                             className="w-2 h-2 rounded-full shrink-0"
                             style={{ backgroundColor: proj.color || '#19A974' }}
                           />
                           <span className="truncate">{proj.name}</span>
-                          <span className="text-[10px] opacity-75 font-mono">({count})</span>
-                        </button>
-                      );
-                    })}
+                        </div>
+
+                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-neutral-100 text-neutral-500 shrink-0">
+                          {count}
+                        </span>
+                      </div>
+
+                      {/* Nested Subfolders if Project Selected */}
+                      {isSelected && projectSubfolders.length > 0 && (
+                        <div className="ml-4 my-0.5 pl-2 border-l border-neutral-200 space-y-0.5">
+                          {projectSubfolders.map(({ name: subName, count: subCount }) => {
+                            const isSubActive = selectedSubfolder === subName;
+                            return (
+                              <div
+                                key={subName}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSubfolder(isSubActive ? null : subName);
+                                  setActiveTab('projects');
+                                }}
+                                className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-colors cursor-pointer ${
+                                  isSubActive
+                                    ? 'bg-[#19A974] text-white font-semibold'
+                                    : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                                }`}
+                              >
+                                <span className="truncate">{subName}</span>
+                                <span
+                                  className={`text-[9px] font-mono px-1 rounded ${
+                                    isSubActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
+                                  }`}
+                                >
+                                  {subCount}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {projects.length === 0 && (
+                  <div className="px-2 py-2 text-[11px] text-neutral-400 italic">
+                    No projects yet
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar Footer */}
+          <div className="p-3 border-t border-neutral-200/80 bg-neutral-50/50 space-y-2 text-xs">
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl font-medium transition-colors cursor-pointer ${
+                activeTab === 'settings'
+                  ? 'bg-neutral-100 text-neutral-900'
+                  : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100/60'
+              }`}
+            >
+              <Settings className="w-3.5 h-3.5 text-neutral-500" />
+              <span>Workspace Settings</span>
+            </button>
+
+            <div className="flex items-center justify-between px-2.5 pt-1 border-t border-neutral-200/50 text-[11px] text-neutral-500">
+              <button
+                onClick={() => setActiveTab('landing')}
+                className="hover:text-neutral-900 cursor-pointer"
+              >
+                Landing Page
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="hover:text-red-600 flex items-center gap-1 cursor-pointer"
+              >
+                <LogOut className="w-3 h-3" />
+                <span>Sign out</span>
+              </button>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content Viewport */}
+        <div className="flex-1 flex flex-col overflow-y-auto">
+          <main className="p-4 sm:p-6 md:p-8 pb-24 md:pb-8 max-w-6xl mx-auto w-full space-y-6">
+            {/* VIEW 1: HOME / OVERVIEW */}
+            {activeTab === 'home' && !selectedProjectId && (
+              <div className="space-y-6">
+                {/* Greeting Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200/80">
+                  <div>
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900">
+                      Welcome, {user.name}
+                    </h1>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Everything your AI creates. Organized into clean project workspaces.
+                    </p>
                   </div>
 
-                  {/* Quick AI Connect Helper Strip */}
-                  <div className="flex items-center justify-between px-1 text-[11px] text-[#6B6B6B]">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#19A974]" />
-                      <span>Ingestion Engine: <strong>Gemini 3.8 Flash</strong> active</span>
-                    </div>
-                    <button
-                      onClick={() => setIsExtensionPairModalOpen(true)}
-                      className="text-neutral-700 hover:text-emerald-700 hover:underline flex items-center gap-1.5 font-medium cursor-pointer"
-                    >
-                      <Zap className="w-3 h-3 text-[#19A974]" />
-                      <span>Pair Chrome Extension Companion</span>
-                    </button>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-neutral-200/80 text-xs font-medium text-neutral-700 shadow-2xs">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>Gemini Ingestion Engine Active</span>
                   </div>
                 </div>
 
-                {/* Your Projects Section */}
+                {/* Mobile Search input */}
+                <div className="block sm:hidden">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search deliverables..."
+                      className="w-full pl-9 pr-3 py-2 bg-white border border-neutral-200 rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Projects Section */}
                 <section className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-[#111111]">Your Projects</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold text-neutral-900">Projects</h2>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60">
+                        {projects.length}
+                      </span>
+                    </div>
                     <button
                       onClick={() => {
                         setProjectToEdit(null);
@@ -1048,43 +919,32 @@ export default function App() {
                   </div>
 
                   {projects.length === 0 ? (
-                    <div className="bg-white border border-[#E7E7E4] rounded-2xl p-8 text-center space-y-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#E8F7F0] text-[#19A974] flex items-center justify-center mx-auto">
-                        <Folder className="w-5 h-5" />
+                    <div className="bg-white border border-neutral-200/80 rounded-2xl p-8 text-center space-y-3 shadow-2xs">
+                      <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-800 flex items-center justify-center mx-auto">
+                        <Folder className="w-5 h-5 text-[#19A974]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-[#111111]">Create your first project</h3>
-                        <p className="text-xs text-[#6B6B6B] mt-1 max-w-sm mx-auto">
-                          {user
-                            ? "What are you working on with AI? Create a project like 'Meto' to organize your artifacts."
-                            : "Sign in with your Supabase account to load your projects or create a new one."}
+                        <h3 className="text-sm font-semibold text-neutral-900">Create your first project</h3>
+                        <p className="text-xs text-neutral-500 mt-1 max-w-sm mx-auto">
+                          Create a project workspace like &quot;Habesha Model&quot; or &quot;Repodx&quot; to organize deliverables.
                         </p>
                       </div>
-                      <div className="flex items-center justify-center gap-2 pt-1">
-                        {user ? (
-                          <button
-                            onClick={() => {
-                              setProjectToEdit(null);
-                              setIsProjectModalOpen(true);
-                            }}
-                            className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium cursor-pointer"
-                          >
-                            Create project
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setIsAuthModalOpen(true)}
-                            className="px-4 py-2 bg-[#111111] hover:bg-neutral-800 text-white rounded-xl text-xs font-medium cursor-pointer"
-                          >
-                            Sign in to Supabase
-                          </button>
-                        )}
-                      </div>
+                      <button
+                        onClick={() => {
+                          setProjectToEdit(null);
+                          setIsProjectModalOpen(true);
+                        }}
+                        className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium cursor-pointer shadow-2xs"
+                      >
+                        Create project
+                      </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {projects.map((proj) => {
                         const isDragOver = dragOverFolderId === `grid-${proj.id}`;
+                        const count = artifacts.filter((a) => a.project_id === proj.id).length;
+
                         return (
                           <div
                             key={proj.id}
@@ -1111,32 +971,37 @@ export default function App() {
                                 handleDropArtifactOnProject(artifactId, proj.id);
                               }
                             }}
-                            onClick={() => setSelectedProjectId(proj.id)}
-                            className={`bg-white border rounded-xl p-4 transition-all cursor-pointer group flex flex-col justify-between ${
+                            onClick={() => {
+                              setSelectedProjectId(proj.id);
+                              setSelectedSubfolder(null);
+                              setActiveTab('projects');
+                            }}
+                            className={`bg-white border rounded-2xl p-4 transition-all cursor-pointer group flex flex-col justify-between shadow-2xs ${
                               isDragOver
-                                ? 'border-[#19A974] ring-2 ring-[#19A974] bg-[#E8F7F0]/40 scale-[1.02]'
+                                ? 'border-[#19A974] ring-2 ring-[#19A974] bg-[#E8F7F0]/40 scale-[1.01]'
                                 : draggingArtifact
                                 ? 'border-dashed border-[#19A974]/60 hover:border-[#19A974]'
-                                : 'border-[#E7E7E4] hover:border-[#19A974]'
+                                : 'border-neutral-200/80 hover:border-neutral-300'
                             }`}
                           >
                             <div className="flex items-start justify-between">
                               <div
-                                className="w-8 h-8 rounded-lg flex items-center justify-center text-white"
+                                className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow-2xs"
                                 style={{ backgroundColor: proj.color || '#19A974' }}
                               >
                                 {isDragOver ? <FolderOpen className="w-4 h-4" /> : <Folder className="w-4 h-4" />}
                               </div>
-                              <span className="text-xs font-mono text-[#6B6B6B]">
-                                {artifacts.filter((a) => a.project_id === proj.id).length} artifacts
+                              <span className="text-[11px] font-mono text-neutral-500">
+                                {count} {count === 1 ? 'artifact' : 'artifacts'}
                               </span>
                             </div>
+
                             <div className="mt-3">
-                              <h3 className="text-xs font-semibold text-[#111111] group-hover:text-[#19A974] transition-colors">
+                              <h3 className="text-xs font-semibold text-neutral-900 group-hover:text-[#19A974] transition-colors">
                                 {proj.name}
                               </h3>
-                              <p className="text-[11px] text-[#6B6B6B] line-clamp-1 mt-0.5">
-                                {proj.description || 'AI project workspace'}
+                              <p className="text-[11px] text-neutral-500 line-clamp-1 mt-0.5">
+                                {proj.description || 'Workspace project'}
                               </p>
                             </div>
                           </div>
@@ -1146,13 +1011,18 @@ export default function App() {
                   )}
                 </section>
 
-                {/* Recent Artifacts Grid */}
+                {/* Recent Artifacts Section */}
                 <section className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-[#111111]">Recent Artifacts</h2>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-sm font-semibold text-neutral-900">Recent Deliverables</h2>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60">
+                        {artifacts.length}
+                      </span>
+                    </div>
                     <button
                       onClick={() => setActiveTab('artifacts')}
-                      className="text-xs text-[#6B6B6B] hover:text-[#111111] flex items-center gap-1 font-medium cursor-pointer"
+                      className="text-xs text-neutral-500 hover:text-neutral-900 flex items-center gap-1 font-medium cursor-pointer"
                     >
                       <span>View all</span>
                       <ChevronRight className="w-3.5 h-3.5" />
@@ -1160,25 +1030,25 @@ export default function App() {
                   </div>
 
                   {filteredArtifacts.length === 0 ? (
-                    <div className="bg-white border border-[#E7E7E4] rounded-2xl p-8 text-center space-y-2">
-                      <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-500 flex items-center justify-center mx-auto">
-                        <Layers className="w-5 h-5" />
+                    <div className="bg-white border border-neutral-200/80 rounded-2xl p-8 text-center space-y-2 shadow-2xs">
+                      <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-600 flex items-center justify-center mx-auto">
+                        <Layers className="w-5 h-5 text-[#19A974]" />
                       </div>
-                      <h3 className="text-sm font-semibold text-[#111111]">Your AI creates. Orfilo organizes.</h3>
-                      <p className="text-xs text-[#6B6B6B] max-w-sm mx-auto">
-                        Capture an artifact from Gemini, ChatGPT, or Claude to let Orfilo automatically understand and organize it.
+                      <h3 className="text-sm font-semibold text-neutral-900">No deliverables captured yet</h3>
+                      <p className="text-xs text-neutral-500 max-w-sm mx-auto">
+                        Use the companion extension or upload a file to automatically categorize it.
                       </p>
                       <button
                         onClick={() => setIsUploadOpen(true)}
-                        className="mt-2 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium cursor-pointer inline-flex items-center gap-1.5"
+                        className="mt-2 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add an artifact</span>
                       </button>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {filteredArtifacts.slice(0, 6).map((art) => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                      {filteredArtifacts.slice(0, 8).map((art) => (
                         <ArtifactCard
                           key={art.id}
                           artifact={art}
@@ -1191,69 +1061,31 @@ export default function App() {
                     </div>
                   )}
                 </section>
-
-                {/* Recent Activity Mini Feed */}
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-semibold text-[#111111]">Recent Activity</h2>
-                    <button
-                      onClick={() => setActiveTab('activity')}
-                      className="text-xs text-[#6B6B6B] hover:text-[#111111] flex items-center gap-1 font-medium cursor-pointer"
-                    >
-                      <span>Full timeline</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="bg-white border border-[#E7E7E4] rounded-xl divide-y divide-[#E7E7E4]">
-                    {events.slice(0, 3).map((ev) => (
-                      <div key={ev.id} className="p-3.5 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                            <Workflow className="w-3 h-3" />
-                          </div>
-                          <div>
-                            <span className="font-medium text-[#111111]">
-                              {ev.actor_type === 'ai_system' ? 'AI organized: ' : 'Saved: '}
-                            </span>
-                            <span className="text-[#6B6B6B] font-mono">
-                              {ev.metadata.summary || `${ev.event_type} artifact`}
-                            </span>
-                          </div>
-                        </div>
-                        <span className="text-[10px] text-[#8F8F8F]">
-                          {new Date(ev.created_at).toLocaleTimeString(undefined, {
-                            hour: 'numeric',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
               </div>
             )}
 
-            {/* View: Project Detail */}
+            {/* VIEW 2: PROJECT DETAIL & SUBFOLDER EXPLORER */}
             {selectedProjectId && activeProject && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E7E7E4]">
+                {/* Project Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-neutral-200/80">
                   <div>
-                    <div className="flex items-center gap-1.5 text-xs text-[#6B6B6B] mb-2">
+                    {/* Breadcrumbs */}
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-2">
                       <button
                         onClick={() => {
                           setSelectedProjectId(null);
                           setSelectedSubfolder(null);
                         }}
-                        className="hover:text-[#111111] transition-colors cursor-pointer"
+                        className="hover:text-neutral-900 transition-colors cursor-pointer"
                       >
                         Projects
                       </button>
                       <ChevronRight className="w-3 h-3 text-neutral-400" />
                       <button
                         onClick={() => setSelectedSubfolder(null)}
-                        className={`hover:text-[#111111] transition-colors cursor-pointer ${
-                          !selectedSubfolder ? 'font-semibold text-neutral-900' : 'text-[#6B6B6B]'
+                        className={`hover:text-neutral-900 transition-colors cursor-pointer ${
+                          !selectedSubfolder ? 'font-semibold text-neutral-900' : 'text-neutral-500'
                         }`}
                       >
                         {activeProject.name}
@@ -1271,17 +1103,17 @@ export default function App() {
 
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-2xs"
                         style={{ backgroundColor: activeProject.color || '#19A974' }}
                       >
-                        <Folder className="w-4 h-4" />
+                        <Folder className="w-5 h-5" />
                       </div>
                       <div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-[#111111] tracking-tight">
+                        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900">
                           {activeProject.name}
                         </h1>
-                        <p className="text-xs text-[#6B6B6B] mt-0.5 max-w-xl">
-                          {activeProject.description || 'Deliverables organized into this project workspace'}
+                        <p className="text-xs text-neutral-500 mt-0.5 max-w-xl">
+                          {activeProject.description || 'Deliverables organized in this project workspace'}
                         </p>
                       </div>
                     </div>
@@ -1293,13 +1125,13 @@ export default function App() {
                         setProjectToEdit(activeProject);
                         setIsProjectModalOpen(true);
                       }}
-                      className="px-3.5 py-2 border border-[#E7E7E4] hover:border-[#111111] rounded-xl text-xs font-semibold text-[#111111] bg-white transition-colors cursor-pointer shadow-2xs"
+                      className="px-3.5 py-1.5 border border-neutral-200/80 hover:border-neutral-300 rounded-xl text-xs font-medium text-neutral-800 bg-white transition-colors cursor-pointer shadow-2xs"
                     >
                       Edit Project
                     </button>
                     <button
                       onClick={() => setIsUploadOpen(true)}
-                      className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Artifact</span>
@@ -1307,56 +1139,56 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* Subfolder Explorer Cards */}
+                {/* Subfolder Explorer Grid (Better Auth Style) */}
                 {projectSubfolders.length > 0 && (
-                  <div className="space-y-2.5 bg-white border border-[#E7E7E4] rounded-2xl p-4 shadow-2xs">
+                  <div className="space-y-2.5 bg-white border border-neutral-200/80 rounded-2xl p-4 shadow-2xs">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-[#111111] uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-xs font-semibold text-neutral-900 uppercase font-mono tracking-wider flex items-center gap-1.5">
                           <Folder className="w-3.5 h-3.5 text-[#19A974]" />
                           <span>Subfolders</span>
                         </span>
-                        <span className="text-[11px] text-[#6B6B6B]">
+                        <span className="text-[11px] text-neutral-400 font-mono">
                           ({projectSubfolders.length} folder{projectSubfolders.length === 1 ? '' : 's'})
                         </span>
                       </div>
                       {selectedSubfolder && (
                         <button
                           onClick={() => setSelectedSubfolder(null)}
-                          className="text-xs font-semibold text-[#19A974] hover:underline flex items-center gap-1 cursor-pointer"
+                          className="text-xs font-medium text-[#19A974] hover:underline cursor-pointer"
                         >
-                          <span>Show all in project</span>
+                          View all subfolders
                         </button>
                       )}
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
-                      {/* All Artifacts folder card */}
+                      {/* All Files card */}
                       <button
                         onClick={() => setSelectedSubfolder(null)}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                           selectedSubfolder === null
                             ? 'bg-neutral-900 border-neutral-900 text-white shadow-xs'
-                            : 'bg-[#FAFAF8] border-[#E7E7E4] hover:border-[#19A974] text-[#111111]'
+                            : 'bg-neutral-50/70 border-neutral-200/80 hover:border-neutral-300 text-neutral-900'
                         }`}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <Folder className={`w-4 h-4 ${selectedSubfolder === null ? 'text-[#19A974]' : 'text-neutral-500'}`} />
                           <span
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                              selectedSubfolder === null ? 'bg-white/20 text-white' : 'bg-neutral-200/70 text-neutral-700'
+                            className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                              selectedSubfolder === null ? 'bg-white/20 text-white' : 'bg-neutral-200/60 text-neutral-700'
                             }`}
                           >
                             {projectArtifacts.length}
                           </span>
                         </div>
-                        <span className="text-xs font-bold truncate">All Files</span>
-                        <span className={`text-[10px] truncate ${selectedSubfolder === null ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                        <span className="text-xs font-semibold truncate">All Files</span>
+                        <span className={`text-[10px] truncate ${selectedSubfolder === null ? 'text-neutral-300' : 'text-neutral-400'}`}>
                           All subfolders
                         </span>
                       </button>
 
-                      {/* Individual Subfolder cards */}
+                      {/* Subfolder Cards */}
                       {projectSubfolders.map(({ name, count }) => {
                         const isSelected = selectedSubfolder === name;
                         return (
@@ -1366,21 +1198,21 @@ export default function App() {
                             className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
                               isSelected
                                 ? 'bg-[#19A974] border-[#19A974] text-white shadow-xs'
-                                : 'bg-[#FAFAF8] border-[#E7E7E4] hover:border-[#19A974] text-[#111111]'
+                                : 'bg-neutral-50/70 border-neutral-200/80 hover:border-neutral-300 text-neutral-900'
                             }`}
                           >
                             <div className="flex items-center justify-between mb-2">
                               <Folder className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#19A974]'}`} />
                               <span
-                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                                  isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200/70 text-neutral-700'
+                                className={`text-[10px] font-mono px-1.5 py-0.2 rounded font-semibold ${
+                                  isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200/60 text-neutral-700'
                                 }`}
                               >
                                 {count}
                               </span>
                             </div>
-                            <span className="text-xs font-bold truncate">{name}</span>
-                            <span className={`text-[10px] truncate ${isSelected ? 'text-white/80' : 'text-neutral-500'}`}>
+                            <span className="text-xs font-semibold truncate">{name}</span>
+                            <span className={`text-[10px] truncate ${isSelected ? 'text-white/80' : 'text-neutral-400'}`}>
                               {count} {count === 1 ? 'file' : 'files'}
                             </span>
                           </button>
@@ -1390,8 +1222,8 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Filter Tabs with real Counts */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                {/* Filter Tabs (Segmented Control Pill Style) */}
+                <div className="p-1 bg-neutral-200/60 rounded-xl flex items-center gap-1 w-fit overflow-x-auto text-xs">
                   {(['all', 'images', 'documents', 'presentations', 'code'] as const).map((filter) => {
                     const count = artifacts.filter((a) => {
                       if (a.project_id !== selectedProjectId) return false;
@@ -1400,10 +1232,11 @@ export default function App() {
                         if (sub.toLowerCase() !== selectedSubfolder.toLowerCase()) return false;
                       }
                       if (filter === 'all') return true;
-                      if (filter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes((a.extension || '').toLowerCase());
-                      if (filter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes((a.extension || '').toLowerCase());
-                      if (filter === 'presentations') return ['pptx', 'ppt', 'key'].includes((a.extension || '').toLowerCase());
-                      if (filter === 'code') return ['ts', 'tsx', 'js', 'py', 'sql', 'html', 'css', 'json'].includes((a.extension || '').toLowerCase());
+                      const ext = (a.extension || '').toLowerCase();
+                      if (filter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(ext);
+                      if (filter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes(ext);
+                      if (filter === 'presentations') return ['pptx', 'ppt', 'key'].includes(ext);
+                      if (filter === 'code') return ['ts', 'tsx', 'js', 'py', 'sql', 'html', 'css', 'json'].includes(ext);
                       return false;
                     }).length;
 
@@ -1411,16 +1244,16 @@ export default function App() {
                       <button
                         key={filter}
                         onClick={() => setTypeFilter(filter)}
-                        className={`px-3.5 py-1.5 rounded-xl font-medium capitalize transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                        className={`px-3 py-1 rounded-lg font-medium capitalize transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
                           typeFilter === filter
-                            ? 'bg-[#111111] text-white shadow-xs'
-                            : 'bg-white border border-[#E7E7E4] text-[#6B6B6B] hover:text-[#111111] hover:border-neutral-300'
+                            ? 'bg-white text-neutral-900 shadow-xs'
+                            : 'text-neutral-500 hover:text-neutral-900'
                         }`}
                       >
                         <span>{filter}</span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded-md ${
-                            typeFilter === filter ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                          className={`text-[10px] font-mono px-1.5 py-0.2 rounded-md ${
+                            typeFilter === filter ? 'bg-neutral-100 text-neutral-700' : 'bg-neutral-200/50 text-neutral-500'
                           }`}
                         >
                           {count}
@@ -1432,22 +1265,22 @@ export default function App() {
 
                 {/* Artifacts in Project */}
                 {filteredArtifacts.length === 0 ? (
-                  <div className="bg-white border border-[#E7E7E4] rounded-2xl p-12 text-center">
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-12 text-center shadow-2xs">
                     <Folder className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                    <h3 className="text-sm font-semibold text-[#111111]">No artifacts in this project yet</h3>
-                    <p className="text-xs text-[#6B6B6B] mt-1">
-                      Upload an export or let Orfilo organize one here.
+                    <h3 className="text-sm font-semibold text-neutral-900">No deliverables found</h3>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Upload an AI export or drop an artifact into this folder.
                     </p>
                     <button
                       onClick={() => setIsUploadOpen(true)}
-                      className="mt-4 px-4 py-2 bg-[#19A974] text-white rounded-xl text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer"
+                      className="mt-4 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-medium inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add artifact</span>
                     </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                     {filteredArtifacts.map((art) => (
                       <ArtifactCard
                         key={art.id}
@@ -1463,14 +1296,14 @@ export default function App() {
               </div>
             )}
 
-            {/* View: Projects Overview */}
+            {/* VIEW 3: PROJECTS OVERVIEW */}
             {activeTab === 'projects' && !selectedProjectId && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-200/80">
                   <div>
-                    <h1 className="text-xl font-bold text-[#111111]">Projects</h1>
-                    <p className="text-xs text-[#6B6B6B] mt-0.5">
-                      First-class organizational units for your AI output
+                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">Projects</h1>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Organizational containers for all AI outputs and subfolders
                     </p>
                   </div>
                   <button
@@ -1478,7 +1311,7 @@ export default function App() {
                       setProjectToEdit(null);
                       setIsProjectModalOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#19A974] text-white rounded-xl text-xs font-semibold shadow-xs cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold shadow-2xs cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Create Project</span>
@@ -1488,6 +1321,8 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {projects.map((proj) => {
                     const isDragOver = dragOverFolderId === `overview-${proj.id}`;
+                    const count = artifacts.filter((a) => a.project_id === proj.id).length;
+
                     return (
                       <div
                         key={proj.id}
@@ -1514,38 +1349,41 @@ export default function App() {
                             handleDropArtifactOnProject(artifactId, proj.id);
                           }
                         }}
-                        onClick={() => setSelectedProjectId(proj.id)}
-                        className={`bg-white border rounded-2xl p-5 transition-all cursor-pointer flex flex-col justify-between group ${
+                        onClick={() => {
+                          setSelectedProjectId(proj.id);
+                          setSelectedSubfolder(null);
+                        }}
+                        className={`bg-white border rounded-2xl p-5 transition-all cursor-pointer flex flex-col justify-between group shadow-2xs ${
                           isDragOver
-                            ? 'border-[#19A974] ring-2 ring-[#19A974] bg-[#E8F7F0]/40 scale-[1.02]'
+                            ? 'border-[#19A974] ring-2 ring-[#19A974] bg-[#E8F7F0]/40 scale-[1.01]'
                             : draggingArtifact
                             ? 'border-dashed border-[#19A974]/60 hover:border-[#19A974]'
-                            : 'border-[#E7E7E4] hover:border-[#19A974]'
+                            : 'border-neutral-200/80 hover:border-neutral-300'
                         }`}
                       >
                         <div>
                           <div className="flex items-start justify-between mb-3">
                             <div
-                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
+                              className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-2xs"
                               style={{ backgroundColor: proj.color || '#19A974' }}
                             >
                               {isDragOver ? <FolderOpen className="w-5 h-5" /> : <Folder className="w-5 h-5" />}
                             </div>
-                            <span className="font-mono text-xs px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">
-                              {artifacts.filter((a) => a.project_id === proj.id).length} artifacts
+                            <span className="font-mono text-xs px-2 py-0.5 rounded-md bg-neutral-100 text-neutral-600 border border-neutral-200/60">
+                              {count} {count === 1 ? 'artifact' : 'artifacts'}
                             </span>
                           </div>
-                          <h2 className="text-sm font-bold text-[#111111] group-hover:text-[#19A974] transition-colors">
+                          <h2 className="text-sm font-semibold text-neutral-900 group-hover:text-[#19A974] transition-colors">
                             {proj.name}
                           </h2>
-                          <p className="text-xs text-[#6B6B6B] mt-1 line-clamp-2 leading-relaxed">
-                            {proj.description || 'AI workspace project.'}
+                          <p className="text-xs text-neutral-500 mt-1 line-clamp-2 leading-relaxed">
+                            {proj.description || 'Project workspace.'}
                           </p>
                         </div>
 
-                        <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between text-[11px] text-[#8F8F8F]">
-                          <span>Updated recently</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-1 transition-transform" />
+                        <div className="mt-4 pt-3 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400">
+                          <span>Open folder & subfolders</span>
+                          <ChevronRight className="w-3.5 h-3.5 text-neutral-400 group-hover:translate-x-0.5 transition-transform" />
                         </div>
                       </div>
                     );
@@ -1554,50 +1392,49 @@ export default function App() {
               </div>
             )}
 
-            {/* View: All Artifacts */}
+            {/* VIEW 4: ALL ARTIFACTS */}
             {activeTab === 'artifacts' && (
               <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-neutral-200/80">
                   <div>
-                    <h1 className="text-xl font-bold text-[#111111]">All Artifacts</h1>
-                    <p className="text-xs text-[#6B6B6B] mt-0.5">
-                      Search, view, and inspect every file your AI has created
+                    <h1 className="text-xl font-bold tracking-tight text-neutral-900">All Artifacts</h1>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Search and inspect every deliverable across all projects
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsUploadOpen(true)}
-                      className="px-4 py-2 bg-[#19A974] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Add Artifact</span>
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setIsUploadOpen(true)}
+                    className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add Artifact</span>
+                  </button>
                 </div>
 
                 {/* Search Bar & Type Filter */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-1">
-                    <Search className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-neutral-400" />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search by name, description, project, purpose, or AI..."
-                      className="w-full pl-9 pr-4 py-2 bg-white border border-[#E7E7E4] rounded-xl text-xs focus:outline-none focus:border-[#19A974]"
+                      placeholder="Search by name, description, category, or AI..."
+                      className="w-full pl-8 pr-4 py-2 bg-white border border-neutral-200/80 rounded-xl text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974]"
                     />
                   </div>
 
-                  <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
+                  {/* Segmented Filter Pills */}
+                  <div className="p-1 bg-neutral-200/60 rounded-xl flex items-center gap-1 overflow-x-auto text-xs shrink-0">
                     {(['all', 'images', 'documents', 'presentations', 'code'] as const).map((filter) => (
                       <button
                         key={filter}
                         onClick={() => setTypeFilter(filter)}
-                        className={`px-3 py-1.5 rounded-xl font-medium capitalize transition-colors cursor-pointer ${
+                        className={`px-3 py-1 rounded-lg font-medium capitalize transition-all cursor-pointer ${
                           typeFilter === filter
-                            ? 'bg-[#111111] text-white'
-                            : 'bg-white border border-[#E7E7E4] text-[#6B6B6B] hover:text-[#111111]'
+                            ? 'bg-white text-neutral-900 shadow-xs'
+                            : 'text-neutral-500 hover:text-neutral-900'
                         }`}
                       >
                         {filter}
@@ -1608,15 +1445,15 @@ export default function App() {
 
                 {/* Artifacts Grid */}
                 {filteredArtifacts.length === 0 ? (
-                  <div className="bg-white border border-[#E7E7E4] rounded-2xl p-12 text-center">
+                  <div className="bg-white border border-neutral-200/80 rounded-2xl p-12 text-center shadow-2xs">
                     <Layers className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                    <h3 className="text-sm font-semibold text-[#111111]">Nothing matched that search</h3>
-                    <p className="text-xs text-[#6B6B6B] mt-1">
-                      Try different keywords or upload a new artifact.
+                    <h3 className="text-sm font-semibold text-neutral-900">No deliverables found</h3>
+                    <p className="text-xs text-neutral-500 mt-1">
+                      Try different keywords or upload a new deliverable.
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                     {filteredArtifacts.map((art) => (
                       <ArtifactCard
                         key={art.id}
@@ -1632,34 +1469,34 @@ export default function App() {
               </div>
             )}
 
-            {/* View: Activity */}
+            {/* VIEW 5: ACTIVITY TIMELINE */}
             {activeTab === 'activity' && <ActivityView events={events} onRefresh={loadWorkspaceData} />}
 
-            {/* View: Settings */}
+            {/* VIEW 6: WORKSPACE SETTINGS */}
             {activeTab === 'settings' && (
               <div className="space-y-6 max-w-2xl">
-                <div>
-                  <h1 className="text-xl font-bold text-[#111111]">Workspace Settings</h1>
-                  <p className="text-xs text-[#6B6B6B] mt-0.5">
+                <div className="pb-3 border-b border-neutral-200/80">
+                  <h1 className="text-xl font-bold tracking-tight text-neutral-900">Workspace Settings</h1>
+                  <p className="text-xs text-neutral-500 mt-0.5">
                     Account management and extension pairing
                   </p>
                 </div>
 
                 {/* Account Details Card */}
-                <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-4">
+                <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 space-y-4 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#111111] text-white flex items-center justify-center font-bold text-sm shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-neutral-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
                         {user.name ? user.name[0].toUpperCase() : 'U'}
                       </div>
                       <div>
-                        <h2 className="text-sm font-semibold text-[#111111]">{user.name}</h2>
-                        <p className="text-xs text-[#6B6B6B] font-mono">{user.email}</p>
+                        <h2 className="text-sm font-semibold text-neutral-900">{user.name}</h2>
+                        <p className="text-xs text-neutral-500 font-mono">{user.email}</p>
                       </div>
                     </div>
                     <button
                       onClick={handleSignOut}
-                      className="px-3.5 py-1.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1.5"
+                      className="px-3.5 py-1.5 border border-red-200/80 text-red-600 hover:bg-red-50/60 rounded-xl text-xs font-medium cursor-pointer transition-colors flex items-center gap-1.5"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       <span>Sign Out</span>
@@ -1668,22 +1505,22 @@ export default function App() {
                 </div>
 
                 {/* Companion Extension Card */}
-                <div className="bg-white border border-[#E7E7E4] rounded-2xl p-6 space-y-3">
+                <div className="bg-white border border-neutral-200/80 rounded-2xl p-6 space-y-3 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-xl bg-neutral-100 flex items-center justify-center text-[#19A974]">
                         <Zap className="w-5 h-5" />
                       </div>
                       <div>
-                        <h2 className="text-sm font-semibold text-[#111111]">Chrome Extension Companion</h2>
-                        <p className="text-xs text-[#6B6B6B]">
-                          Pair the browser extension to capture files directly from AI tools
+                        <h2 className="text-sm font-semibold text-neutral-900">Chrome Companion Extension</h2>
+                        <p className="text-xs text-neutral-500">
+                          Capture deliverables quietly from AI tools directly into project subfolders
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => setIsExtensionPairModalOpen(true)}
-                      className="px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold cursor-pointer shadow-xs transition-colors"
+                      className="px-3.5 py-1.5 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold cursor-pointer shadow-2xs transition-colors"
                     >
                       Pair Extension
                     </button>
@@ -1695,7 +1532,62 @@ export default function App() {
         </div>
       </div>
 
-      {/* Modals & Drawers */}
+      {/* Floating Drag Feedback Indicator */}
+      {draggingArtifact && (
+        <aside
+          aria-label="Drag feedback"
+          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-neutral-900 text-white px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 border border-neutral-700 animate-in fade-in slide-in-from-bottom-2 pointer-events-none max-w-[90vw]"
+        >
+          <div className="w-6 h-6 rounded-lg bg-[#19A974] flex items-center justify-center text-white shrink-0">
+            <FolderOpen className="w-3.5 h-3.5" />
+          </div>
+          <div className="text-xs truncate">
+            <span className="font-semibold text-emerald-400">Moving artifact:</span>{' '}
+            <span className="font-mono text-neutral-200 truncate">{draggingArtifact.display_name}</span>
+            <span className="text-neutral-400 ml-1.5 hidden sm:inline">
+              &rarr; Drop into any project folder
+            </span>
+          </div>
+        </aside>
+      )}
+
+      {/* Move Notification Toast with Undo */}
+      {moveToast && (
+        <aside
+          aria-label="Notification toast"
+          className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 bg-white border border-[#19A974]/40 shadow-xl rounded-2xl p-4 flex items-center gap-3 max-w-[calc(100vw-2rem)] sm:max-w-md animate-in fade-in slide-in-from-bottom-4"
+        >
+          <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200/60">
+            <CheckCircle className="w-4 h-4 text-[#19A974]" />
+          </div>
+          <div className="flex-1 min-w-0 text-xs">
+            <div className="font-semibold text-neutral-900">Artifact Moved</div>
+            <div className="text-neutral-500 truncate">
+              <span className="font-mono font-medium text-neutral-800">{moveToast.artifactName}</span>
+              {' &rarr; '}
+              <span className="font-medium text-[#19A974]">{moveToast.targetProjectName}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {moveToast.previousProjectId !== null && (
+              <button
+                onClick={handleUndoMove}
+                className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-900 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Undo
+              </button>
+            )}
+            <button
+              onClick={() => setMoveToast(null)}
+              className="text-neutral-400 hover:text-black p-1 text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+        </aside>
+      )}
+
+      {/* Centered Modals */}
       <UploadArtifactModal
         isOpen={isUploadOpen}
         onClose={() => setIsUploadOpen(false)}
@@ -1740,62 +1632,7 @@ export default function App() {
         onClose={() => setIsExtensionPairModalOpen(false)}
       />
 
-      {/* Floating Dragging Indicator */}
-      {draggingArtifact && (
-        <aside
-          aria-label="Drag feedback"
-          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 bg-[#111111] text-white px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-neutral-700 animate-in fade-in slide-in-from-bottom-2 pointer-events-none max-w-[90vw]"
-        >
-          <div className="w-6 h-6 rounded-lg bg-[#19A974] flex items-center justify-center text-white shrink-0">
-            <FolderOpen className="w-3.5 h-3.5" />
-          </div>
-          <div className="text-xs truncate">
-            <span className="font-semibold text-emerald-400">Moving artifact:</span>{' '}
-            <span className="font-mono text-neutral-200 truncate">{draggingArtifact.display_name}</span>
-            <span className="text-neutral-400 ml-1.5 hidden sm:inline">
-              → Drop into any project folder
-            </span>
-          </div>
-        </aside>
-      )}
-
-      {/* Toast Notification with Undo */}
-      {moveToast && (
-        <aside
-          aria-label="Notification toast"
-          className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 bg-white border border-[#19A974]/40 shadow-xl rounded-2xl p-4 flex items-center gap-3 max-w-[calc(100vw-2rem)] sm:max-w-md animate-in fade-in slide-in-from-bottom-4"
-        >
-          <div className="w-8 h-8 rounded-xl bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0">
-            <CheckCircle className="w-4 h-4" />
-          </div>
-          <div className="flex-1 min-w-0 text-xs">
-            <div className="font-semibold text-[#111111]">Artifact Moved</div>
-            <div className="text-[#6B6B6B] truncate">
-              <span className="font-mono font-medium text-neutral-800">{moveToast.artifactName}</span>
-              {' → '}
-              <span className="font-medium text-[#19A974]">{moveToast.targetProjectName}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {moveToast.previousProjectId !== null && (
-              <button
-                onClick={handleUndoMove}
-                className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-[#111111] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                Undo
-              </button>
-            )}
-            <button
-              onClick={() => setMoveToast(null)}
-              className="text-neutral-400 hover:text-black p-1 text-xs cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-        </aside>
-      )}
-
-      {/* Mobile Bottom Navigation Menu */}
+      {/* Mobile Bottom Navigation */}
       <MobileBottomNav
         activeTab={activeTab}
         onSelectTab={setActiveTab}

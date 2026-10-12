@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
-import { LogIn, UserPlus, AlertCircle, Loader2, ShieldCheck, Mail, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LogIn, UserPlus, AlertCircle, Loader2, ShieldCheck, Mail, Lock, User, ArrowRight, X } from 'lucide-react';
 import { createBrowserClient, getSupabaseConfig } from '../lib/supabase/client.ts';
-import { OrfiloBrand } from './OrfiloBrand.tsx';
-import { User } from '../types/index.ts';
+import { OrfiloIcon } from './OrfiloBrand.tsx';
+import { User as UserType } from '../types/index.ts';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: 'signin' | 'signup';
-  onAuthSuccess: (user: User) => void;
+  onAuthSuccess: (user: UserType) => void;
 }
 
-export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'signin', onAuthSuccess }) => {
-  const [isSignUp, setIsSignUp] = useState(initialMode === 'signup');
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  initialMode = 'signin',
+  onAuthSuccess,
+}) => {
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -20,8 +25,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    setIsSignUp(initialMode === 'signup');
+  useEffect(() => {
+    setMode(initialMode);
     setErrorMsg(null);
     setSuccessNotice(null);
   }, [initialMode, isOpen]);
@@ -39,11 +44,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
     const client = createBrowserClient();
 
     if (!isConfigured || !client) {
-      // In development sandbox mode without external credentials
-      const mockUser: User = {
+      const mockUser: UserType = {
         id: 'usr_' + Math.random().toString(36).substring(2, 9),
         email: email || 'metoaipr@gmail.com',
-        name: fullName || (email ? email.split('@')[0] : 'Meto User'),
+        name: fullName || (email ? email.split('@')[0] : 'Orfilo User'),
         avatar_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -52,12 +56,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
         setIsLoading(false);
         onAuthSuccess(mockUser);
         onClose();
-      }, 500);
+      }, 400);
       return;
     }
 
     try {
-      if (isSignUp) {
+      if (mode === 'signup') {
         const { data, error } = await client.auth.signUp({
           email: email.trim(),
           password,
@@ -86,7 +90,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
             });
             onClose();
           } else {
-            setSuccessNotice('Account created! Please check your email to verify your address before signing in.');
+            setSuccessNotice('Account created. Check your email to verify before signing in.');
           }
         }
       } else {
@@ -114,7 +118,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   };
 
   const handleQuickSignIn = async () => {
-    setIsSignUp(false);
+    setMode('signin');
     setEmail('metoaipr@gmail.com');
     setPassword('Orfilo2026!Secure');
     setErrorMsg(null);
@@ -209,127 +213,88 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-3 sm:p-4">
-      <div className="bg-[#FAFAF8] border border-[#E7E7E4] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        {/* Header */}
-        <div className="p-5 sm:p-6 text-center border-b border-[#E7E7E4] bg-white shrink-0">
-          <OrfiloBrand variant="stacked" size="md" showTagline={false} className="mx-auto mb-2" />
-          <h2 className="text-sm font-semibold text-[#111111] mt-2">
-            {isSignUp ? 'Create your Orfilo account' : 'Welcome back'}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+      <div className="bg-white border border-neutral-200/80 rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150">
+        {/* Header & Brand */}
+        <div className="p-6 pb-4 flex flex-col items-center text-center relative border-b border-neutral-100">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 text-neutral-400 hover:text-neutral-900 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer"
+            aria-label="Close dialog"
+          >
+            <X className="w-4 h-4" />
+          </button>
+
+          <div className="w-10 h-10 rounded-xl bg-neutral-50 border border-neutral-200/80 flex items-center justify-center mb-3 shadow-2xs">
+            <OrfiloIcon size={26} />
+          </div>
+
+          <h2 className="text-base font-semibold text-neutral-900 tracking-tight">
+            {mode === 'signup' ? 'Create your account' : 'Sign in to Orfilo'}
           </h2>
-          <p className="text-xs text-[#6B6B6B] mt-0.5">
-            {isSignUp ? 'Start organizing everything your AI creates' : 'Sign in to access your workspace'}
+          <p className="text-xs text-neutral-500 mt-0.5">
+            {mode === 'signup'
+              ? 'Organize every artifact your AI creates'
+              : 'Enter your credentials to access your workspace'}
           </p>
+
+          {/* Better Auth Segmented Switcher Pill */}
+          <div className="mt-4 w-full p-1 bg-neutral-100/80 border border-neutral-200/60 rounded-xl flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('signin');
+                setErrorMsg(null);
+                setSuccessNotice(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                mode === 'signin'
+                  ? 'bg-white text-neutral-900 shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode('signup');
+                setErrorMsg(null);
+                setSuccessNotice(null);
+              }}
+              className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all cursor-pointer ${
+                mode === 'signup'
+                  ? 'bg-white text-neutral-900 shadow-xs'
+                  : 'text-neutral-500 hover:text-neutral-900'
+              }`}
+            >
+              Create Account
+            </button>
+          </div>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto">
+        {/* Content & Form */}
+        <div className="p-6 pt-4 space-y-4 text-xs overflow-y-auto">
           {errorMsg && (
-            <div className="bg-red-50 border border-red-200 text-red-800 rounded-xl p-3 text-xs flex items-center gap-2">
+            <div className="bg-red-50/80 border border-red-200/80 text-red-800 rounded-xl p-3 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           {successNotice && (
-            <div className="bg-[#E8F7F0] border border-[#19A974]/30 text-emerald-950 rounded-xl p-3 text-xs flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 shrink-0 text-[#19A974]" />
+            <div className="bg-emerald-50/80 border border-emerald-200/80 text-emerald-900 rounded-xl p-3 text-xs flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{successNotice}</span>
             </div>
           )}
 
-          {isSignUp && (
-            <div>
-              <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1">Full Name</label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Meto Founder"
-                className="w-full px-3 py-2 border border-[#E7E7E4] rounded-xl bg-white text-xs focus:outline-none focus:border-[#19A974]"
-                required
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1">Email Address</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
-                className="w-full pl-9 pr-3 py-2 border border-[#E7E7E4] rounded-xl bg-white text-xs focus:outline-none focus:border-[#19A974]"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-medium text-[#6B6B6B] mb-1">Password</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
-                className="w-full pl-9 pr-3 py-2 border border-[#E7E7E4] rounded-xl bg-white text-xs focus:outline-none focus:border-[#19A974]"
-                required
-                minLength={6}
-              />
-            </div>
-          </div>
-
-          {/* Quick-fill button for created real test user */}
-          <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleQuickSignIn}
-              disabled={isLoading}
-              className="w-full py-1.5 px-2 bg-[#E8F7F0] hover:bg-[#d6f2e4] text-[#19A974] rounded-lg text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-[#19A974]/20 disabled:opacity-50"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>One-click sign in (metoaipr@gmail.com)</span>
-            </button>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-2.5 bg-[#111111] hover:bg-neutral-800 text-white rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 mt-2"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing...
-              </>
-            ) : isSignUp ? (
-              <>
-                <UserPlus className="w-3.5 h-3.5" /> Create Account
-              </>
-            ) : (
-              <>
-                <LogIn className="w-3.5 h-3.5" /> Sign In
-              </>
-            )}
-          </button>
-
-          <div className="relative my-3 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-[#E7E7E4]" />
-            </div>
-            <span className="relative bg-[#FAFAF8] px-2 text-[10px] text-[#8F8F8F] uppercase tracking-wider font-medium">
-              Or
-            </span>
-          </div>
-
+          {/* Social Provider OAuth */}
           <button
             type="button"
             onClick={handleGoogleOAuth}
             disabled={isLoading}
-            className="w-full py-2.5 bg-white hover:bg-neutral-50 text-[#3c4043] border border-[#dadce0] rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-2.5 cursor-pointer disabled:opacity-50 shadow-2xs"
+            className="w-full py-2.5 px-3 bg-white hover:bg-neutral-50 active:bg-neutral-100 text-neutral-800 border border-neutral-200/80 rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-2.5 cursor-pointer shadow-2xs disabled:opacity-50"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 48 48">
               <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
@@ -337,31 +302,115 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMo
               <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
               <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
             </svg>
-            <span>Continue with Google (Supabase Auth)</span>
+            <span>Continue with Google</span>
           </button>
 
-          <div className="text-center pt-2">
+          {/* Divider */}
+          <div className="relative my-3 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-neutral-200/80" />
+            </div>
+            <span className="relative bg-white px-2 text-[10px] text-neutral-400 uppercase tracking-wider font-mono">
+              or continue with email
+            </span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-[11px] font-medium text-neutral-700 mb-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full pl-9 pr-3 py-2 border border-neutral-200/80 rounded-xl bg-white text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974] transition-all"
+                    required
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[11px] font-medium text-neutral-700 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@company.com"
+                  className="w-full pl-9 pr-3 py-2 border border-neutral-200/80 rounded-xl bg-white text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974] transition-all"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-neutral-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3 top-2.5 text-neutral-400" />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full pl-9 pr-3 py-2 border border-neutral-200/80 rounded-xl bg-white text-xs text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:border-[#19A974] focus:ring-1 focus:ring-[#19A974] transition-all"
+                  required
+                  minLength={6}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-2.5 bg-neutral-900 hover:bg-neutral-800 active:bg-black text-white rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 shadow-xs"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Processing...</span>
+                </>
+              ) : mode === 'signup' ? (
+                <>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Create Account</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Quick-fill one-click button */}
+          <div className="pt-1 border-t border-neutral-100">
             <button
               type="button"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setErrorMsg(null);
-                setSuccessNotice(null);
-              }}
-              className="text-xs text-[#6B6B6B] hover:text-[#111111] underline cursor-pointer"
+              onClick={handleQuickSignIn}
+              disabled={isLoading}
+              className="w-full py-2 px-3 bg-emerald-50/60 hover:bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200/60 disabled:opacity-50"
             >
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>One-click test sign in (metoaipr@gmail.com)</span>
             </button>
           </div>
-        </form>
+        </div>
 
-        <div className="px-6 py-3 border-t border-[#E7E7E4] bg-white flex justify-end">
-          <button
-            onClick={onClose}
-            className="text-xs text-[#6B6B6B] hover:text-[#111111] cursor-pointer"
-          >
-            Close
-          </button>
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-neutral-100 bg-neutral-50/50 flex items-center justify-center text-[11px] text-neutral-400">
+          <span>Protected by Supabase Row-Level Security</span>
         </div>
       </div>
     </div>
