@@ -286,15 +286,15 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </p>
           </div>
 
-          {/* Asymmetric Bento Cards Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* 4 High-Class Architecture Cards in a 2x2 Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 1 (SPAN 2): CHROME COMPANION EXTENSION              */}
+            {/* CARD 01: CHROME COMPANION EXTENSION                           */}
             {/* ------------------------------------------------------------- */}
             <motion.div
               whileHover={{ y: -3 }}
               transition={{ duration: 0.2 }}
-              className="md:col-span-2 bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
+              className="bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -306,7 +306,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-1.5 max-w-xl">
+                <div className="space-y-1.5">
                   <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
                     Silent Ingestion at the Source
                   </h3>
@@ -316,10 +316,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </div>
 
-              {/* High-Class Visual: Floating Companion Capture Pill over AI Mockup */}
+              {/* Floating Companion Capture Pill over AI Mockup */}
               <div className="mt-6 pt-5 border-t border-neutral-100">
                 <div className="bg-neutral-900 text-neutral-100 rounded-xl p-4 font-mono text-xs shadow-md border border-neutral-800 relative overflow-hidden">
-                  {/* Fake AI header */}
                   <div className="flex items-center justify-between pb-3 mb-3 border-b border-neutral-800 text-[11px] text-neutral-400">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -330,7 +329,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     <span className="text-neutral-500 text-[10px]">95ms latency</span>
                   </div>
 
-                  {/* Code snippet inside */}
                   <div className="space-y-1 text-[11px] text-neutral-300 opacity-90 select-none">
                     <div><span className="text-purple-400">export const</span> <span className="text-blue-400">campaignDeliverable</span> = {'{'}</div>
                     <div className="pl-4 text-emerald-300">project: <span className="text-amber-300">&quot;Habesha Model&quot;</span>,</div>
@@ -339,8 +337,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     <div>{'}'};</div>
                   </div>
 
-                  {/* Floating Orfilo Capture Tooltip Overlay */}
-                  <div className="absolute right-4 bottom-3 sm:bottom-4 flex items-center gap-2 bg-white text-neutral-900 px-3.5 py-1.5 rounded-xl shadow-xl border border-neutral-200 text-xs font-sans font-semibold animate-in fade-in slide-in-from-right-2">
+                  <div className="absolute right-4 bottom-3 sm:bottom-4 flex items-center gap-2 bg-white text-neutral-900 px-3.5 py-1.5 rounded-xl shadow-xl border border-neutral-200 text-xs font-sans font-semibold">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                     <span className="text-[#19A974]">Save to Orfilo</span>
                     <span className="text-neutral-300">↳</span>
@@ -352,7 +349,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </motion.div>
 
             {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 2 (SPAN 1): GEMINI PROMPT-TO-NAME CLASSIFIER       */}
+            {/* CARD 02: GEMINI PROMPT-TO-NAME CLASSIFIER                     */}
             {/* ------------------------------------------------------------- */}
             <motion.div
               whileHover={{ y: -3 }}
@@ -371,29 +368,27 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
 
                 <div className="space-y-1.5">
                   <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
-                    Prompt-to-Filename
+                    Prompt-to-Filename Engine
                   </h3>
                   <p className="text-xs text-neutral-500 leading-relaxed">
-                    Gemini 2.5 Flash analyzes prompt context to convert meaningless download hashes into standardized kebab-case filenames.
+                    Gemini 2.5 Flash analyzes prompt context to convert meaningless download hashes into standardized kebab-case filenames based on intent.
                   </p>
                 </div>
               </div>
 
               {/* Visual Transformation Box */}
               <div className="mt-6 pt-5 border-t border-neutral-100 space-y-2.5 font-mono text-xs">
-                {/* Before: Raw Hash */}
                 <div className="p-2.5 bg-red-50/80 border border-red-200/70 rounded-xl text-red-700 flex items-center justify-between">
                   <span className="line-through truncate text-[11px]">export_849202_v2.tmp</span>
-                  <span className="text-[10px] bg-red-100 px-1.5 py-0.5 rounded text-red-800">Messy</span>
+                  <span className="text-[10px] bg-red-100 px-1.5 py-0.5 rounded text-red-800">Raw AI Export</span>
                 </div>
 
                 <div className="flex justify-center text-neutral-400 text-xs">
-                  <span className="text-[10px] bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200">
-                    Gemini 2.5 Flash Parsing
+                  <span className="text-[10px] bg-neutral-100 px-2 py-0.5 rounded-full border border-neutral-200 font-semibold text-neutral-600">
+                    Gemini 2.5 Flash Context Parsing
                   </span>
                 </div>
 
-                {/* After: Clean Filename */}
                 <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 flex items-center justify-between shadow-2xs">
                   <span className="font-semibold truncate text-[11px]">habesha-hero-concept.png</span>
                   <span className="text-[10px] bg-emerald-100 px-1.5 py-0.5 rounded text-emerald-800 font-semibold">99.4% Match</span>
@@ -402,7 +397,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             </motion.div>
 
             {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 3 (SPAN 1): POSTGRESQL ROW-LEVEL SECURITY          */}
+            {/* CARD 03: PROJECT & NESTED SUBFOLDER ROUTING                   */}
             {/* ------------------------------------------------------------- */}
             <motion.div
               whileHover={{ y: -3 }}
@@ -411,65 +406,15 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-neutral-100 text-neutral-900 flex items-center justify-center border border-neutral-200/80 shadow-2xs">
-                    <Lock className="w-5 h-5 text-neutral-800" />
-                  </div>
-                  <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60">
-                    03 / SECURITY
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
-                    PostgreSQL RLS
-                  </h3>
-                  <p className="text-xs text-neutral-500 leading-relaxed">
-                    100% database-level tenant isolation. Every query enforces PostgreSQL <code className="bg-neutral-100 px-1 rounded text-neutral-700">auth.uid() = user_id</code> policies with hashed keys.
-                  </p>
-                </div>
-              </div>
-
-              {/* Visual SQL Policy Terminal */}
-              <div className="mt-6 pt-5 border-t border-neutral-100">
-                <div className="bg-neutral-900 text-neutral-300 rounded-xl p-3 font-mono text-[10px] border border-neutral-800 space-y-1.5 shadow-2xs">
-                  <div className="flex items-center justify-between text-neutral-500 border-b border-neutral-800 pb-1.5">
-                    <span>rls_user_policy.sql</span>
-                    <span className="text-emerald-400 font-semibold">ENFORCED</span>
-                  </div>
-                  <div className="text-neutral-400">CREATE POLICY user_isolation</div>
-                  <div className="pl-2 text-neutral-300">ON artifacts FOR ALL</div>
-                  <div className="pl-2 text-emerald-400">USING (auth.uid() = user_id);</div>
-                </div>
-
-                <div className="mt-2.5 flex items-center justify-between text-[11px] text-neutral-500 font-mono">
-                  <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#19A974]" />
-                    <span>Cryptographic SHA-256</span>
-                  </span>
-                  <span>Zero Leakage</span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 4 (SPAN 2): PROJECT & NESTED SUBFOLDER ROUTING      */}
-            {/* ------------------------------------------------------------- */}
-            <motion.div
-              whileHover={{ y: -3 }}
-              transition={{ duration: 0.2 }}
-              className="md:col-span-2 bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
                   <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-2xs">
                     <Folder className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60">
-                    04 / SUBFOLDERS & DRAG & DROP
+                    03 / SUBFOLDERS & DRAG & DROP
                   </span>
                 </div>
 
-                <div className="space-y-1.5 max-w-xl">
+                <div className="space-y-1.5">
                   <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
                     Multi-Level Subfolder Architecture
                   </h3>
@@ -479,9 +424,8 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </div>
 
-              {/* High-Class Visual: Real Tree Hierarchy + Drag Move Toast */}
-              <div className="mt-6 pt-5 border-t border-neutral-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Left: Nested Tree Visual */}
+              {/* Nested Tree Visual + Drag Feedback */}
+              <div className="mt-6 pt-5 border-t border-neutral-100 space-y-3">
                 <div className="bg-neutral-50/80 border border-neutral-200/80 rounded-xl p-3.5 font-mono text-xs space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between font-semibold text-neutral-900 pb-1 border-b border-neutral-200/60">
                     <span className="flex items-center gap-1.5">
@@ -507,38 +451,25 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   </div>
                 </div>
 
-                {/* Right: Drag Move Feedback & Undo */}
-                <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-3.5 flex flex-col justify-between space-y-2">
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-800 font-semibold flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>Live Move Confirmation</span>
-                    </div>
-                    <div className="text-xs text-neutral-900 font-semibold">
-                      Artifact Moved &rarr; <span className="text-[#19A974]">3D Renders</span>
-                    </div>
-                    <p className="text-[11px] text-neutral-500">
-                      Drop into any folder anytime. Revert mistakes instantly with 1-click Undo.
-                    </p>
+                <div className="p-2.5 bg-emerald-50/60 border border-emerald-200/80 rounded-xl flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 text-emerald-900 font-medium truncate">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="truncate">Moved &rarr; 3D Renders</span>
                   </div>
-
-                  <div className="flex items-center justify-between pt-2 border-t border-emerald-100 text-xs">
-                    <span className="text-neutral-400 text-[11px] font-mono">1 deliverable moved</span>
-                    <span className="px-2.5 py-1 bg-white border border-emerald-200 rounded-lg text-emerald-800 font-semibold text-xs shadow-2xs">
-                      Undo Move
-                    </span>
-                  </div>
+                  <span className="px-2 py-0.5 bg-white border border-emerald-200 rounded text-emerald-800 font-semibold text-[11px] shadow-2xs">
+                    Undo Move
+                  </span>
                 </div>
               </div>
             </motion.div>
 
             {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 5 (SPAN 2): LIGHTNING ⌘K COMMAND PALETTE           */}
+            {/* CARD 04: LIGHTNING ⌘K COMMAND PALETTE                         */}
             {/* ------------------------------------------------------------- */}
             <motion.div
               whileHover={{ y: -3 }}
               transition={{ duration: 0.2 }}
-              className="md:col-span-2 bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
+              className="bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
             >
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -546,11 +477,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     <Search className="w-5 h-5" />
                   </div>
                   <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60">
-                    05 / COMMAND PALETTE
+                    04 / COMMAND PALETTE
                   </span>
                 </div>
 
-                <div className="space-y-1.5 max-w-xl">
+                <div className="space-y-1.5">
                   <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
                     Sub-15ms ⌘K Workspace Search
                   </h3>
@@ -560,10 +491,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </div>
               </div>
 
-              {/* High-Class Visual: Floating ⌘K Command Palette */}
+              {/* Floating ⌘K Command Palette Visual */}
               <div className="mt-6 pt-5 border-t border-neutral-100">
                 <div className="bg-neutral-50 border border-neutral-200/80 rounded-xl p-3 space-y-2 shadow-sm font-mono text-xs">
-                  {/* Search Bar */}
                   <div className="bg-white border border-neutral-200/80 rounded-lg px-3 py-2 flex items-center justify-between text-xs text-neutral-900 shadow-2xs">
                     <div className="flex items-center gap-2">
                       <Search className="w-3.5 h-3.5 text-[#19A974]" />
@@ -575,14 +505,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                     </kbd>
                   </div>
 
-                  {/* Filtered Search Results */}
                   <div className="space-y-1 text-[11px]">
                     <div className="p-2 bg-white rounded-lg border border-emerald-200/70 flex items-center justify-between text-neutral-800">
                       <div className="flex items-center gap-2 truncate">
                         <span className="w-1.5 h-1.5 rounded-full bg-[#19A974]" />
                         <span className="font-semibold truncate">habesha-editorial-golden-hour.png</span>
                       </div>
-                      <span className="text-[10px] text-neutral-400 font-sans">Habesha / Marketing</span>
+                      <span className="text-[10px] text-neutral-400 font-sans">Marketing</span>
                     </div>
 
                     <div className="p-2 bg-neutral-100/60 rounded-lg flex items-center justify-between text-neutral-600">
@@ -590,60 +519,10 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                         <span className="w-1.5 h-1.5 rounded-full bg-neutral-400" />
                         <span className="truncate">couture-garment-wireframe.blend</span>
                       </div>
-                      <span className="text-[10px] text-neutral-400 font-sans">Habesha / 3D Renders</span>
+                      <span className="text-[10px] text-neutral-400 font-sans">3D Renders</span>
                     </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-
-            {/* ------------------------------------------------------------- */}
-            {/* BENTO CARD 6 (SPAN 1): UNIVERSAL AI ECOSYSTEM                 */}
-            {/* ------------------------------------------------------------- */}
-            <motion.div
-              whileHover={{ y: -3 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white border border-neutral-200/80 rounded-2xl p-7 shadow-xs hover:shadow-lg hover:border-neutral-300 transition-all duration-300 flex flex-col justify-between relative overflow-hidden group"
-            >
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 shadow-2xs">
-                    <Layers className="w-5 h-5" />
-                  </div>
-                  <span className="text-[10px] font-mono font-semibold px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-500 border border-neutral-200/60">
-                    06 / ECOSYSTEM
-                  </span>
-                </div>
-
-                <div className="space-y-1.5">
-                  <h3 className="text-lg font-bold text-neutral-900 tracking-tight">
-                    Universal AI Sync
-                  </h3>
-                  <p className="text-xs text-neutral-500 leading-relaxed">
-                    Native capture companion works across all primary AI models and IDEs without specialized configuration.
-                  </p>
-                </div>
-              </div>
-
-              {/* Model Badges Grid */}
-              <div className="mt-6 pt-5 border-t border-neutral-100 space-y-1.5 font-mono text-xs">
-                {[
-                  { name: 'ChatGPT', provider: 'OpenAI GPT-4o' },
-                  { name: 'Claude 3.7', provider: 'Anthropic Sonnet' },
-                  { name: 'Gemini 2.5', provider: 'Google Flash' },
-                  { name: 'Cursor & Midjourney', provider: 'IDEs & Visuals' },
-                ].map((m, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2 bg-neutral-50 rounded-xl border border-neutral-200/60 flex items-center justify-between text-[11px]"
-                  >
-                    <div className="flex items-center gap-1.5 text-neutral-800 font-semibold">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span>{m.name}</span>
-                    </div>
-                    <span className="text-[10px] text-neutral-400 font-sans">{m.provider}</span>
-                  </div>
-                ))}
               </div>
             </motion.div>
           </div>
