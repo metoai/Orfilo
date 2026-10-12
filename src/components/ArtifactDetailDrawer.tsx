@@ -144,12 +144,30 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
         </div>
       );
     }
-    if (['pdf', 'docx', 'txt', 'md'].includes(artifact.extension)) {
+    if (['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes(artifact.extension.toLowerCase())) {
+      const docUrl = (artifact.metadata?.doc_url as string) || (artifact.metadata?.source_url as string);
       return (
-        <div className="w-full h-44 bg-blue-50/50 rounded-xl flex flex-col items-center justify-center border border-blue-100 p-6 text-center">
-          <FileText className="w-10 h-10 text-blue-600 mb-2" />
-          <div className="text-xs font-semibold text-blue-950">{artifact.metadata.purpose || 'Document'}</div>
-          <div className="text-[11px] text-blue-800/80 mt-1 font-mono">{formatBytes(artifact.size_bytes)}</div>
+        <div className="w-full rounded-2xl bg-blue-50/50 flex flex-col items-center justify-center border border-blue-100 p-6 text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center">
+            <FileText className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="text-sm font-semibold text-blue-950">{artifact.display_name}</h4>
+            <div className="text-[11px] text-blue-700/80 mt-0.5 font-mono">
+              {artifact.extension.toUpperCase()} &bull; {formatBytes(artifact.size_bytes)}
+            </div>
+          </div>
+          {docUrl && (
+            <a
+              href={docUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-white bg-[#19A974] hover:bg-[#158f62] rounded-xl transition-colors cursor-pointer shadow-2xs"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Open Document</span>
+            </a>
+          )}
         </div>
       );
     }
@@ -175,9 +193,15 @@ export const ArtifactDetailDrawer: React.FC<ArtifactDetailDrawerProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-xs">
-      <div className="w-full max-w-md bg-[#FAFAF8] h-full shadow-2xl border-l border-[#E7E7E4] flex flex-col overflow-hidden animate-in slide-in-from-right duration-200">
-        {/* Drawer Header */}
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-xl max-h-[90vh] bg-[#FAFAF8] rounded-2xl shadow-2xl border border-[#E7E7E4] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+      >
+        {/* Modal Header */}
         <div className="px-6 py-4 border-b border-[#E7E7E4] flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2">
             <span className="font-mono text-[11px] uppercase tracking-wider px-2 py-0.5 rounded bg-neutral-100 text-[#111111]">

@@ -21,6 +21,7 @@ export interface Project {
 
 export interface ArtifactMetadata {
   category?: string;
+  subfolder?: string;
   purpose?: string;
   topics?: string[];
   keywords?: string[];

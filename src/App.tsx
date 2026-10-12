@@ -67,6 +67,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'images' | 'documents' | 'presentations' | 'code'>('all');
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedSubfolder, setSelectedSubfolder] = useState<string | null>(null);
 
   // Modals & Drawers
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -414,10 +415,17 @@ export default function App() {
       list = list.filter((a) => a.project_id === selectedProjectId);
     }
 
+    if (selectedSubfolder) {
+      list = list.filter((a) => {
+        const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
+        return sub.toLowerCase() === selectedSubfolder.toLowerCase();
+      });
+    }
+
     if (typeFilter !== 'all') {
       list = list.filter((a) => {
         if (typeFilter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg'].includes(a.extension);
-        if (typeFilter === 'documents') return ['pdf', 'docx', 'txt', 'md'].includes(a.extension);
+        if (typeFilter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes(a.extension.toLowerCase());
         if (typeFilter === 'presentations') return ['pptx', 'key'].includes(a.extension);
         if (typeFilter === 'code') return ['ts', 'tsx', 'js', 'json', 'py', 'sql'].includes(a.extension);
         return true;
@@ -435,12 +443,13 @@ export default function App() {
           (a.source_name ? a.source_name.toLowerCase().includes(q) : false) ||
           (a.metadata?.purpose && a.metadata.purpose.toLowerCase().includes(q)) ||
           (a.metadata?.category && a.metadata.category.toLowerCase().includes(q)) ||
+          (a.metadata?.subfolder && a.metadata.subfolder.toLowerCase().includes(q)) ||
           (a.metadata?.keywords && a.metadata.keywords.some((k) => k.toLowerCase().includes(q)))
       );
     }
 
     return list;
-  }, [artifacts, selectedProjectId, typeFilter, searchQuery]);
+  }, [artifacts, selectedProjectId, selectedSubfolder, typeFilter, searchQuery]);
 
   if (isLoading) {
     return (
@@ -496,6 +505,21 @@ export default function App() {
   }
 
   const activeProject = projects.find((p) => p.id === selectedProjectId);
+
+  const projectArtifacts = useMemo(() => {
+    if (!selectedProjectId) return [];
+    return artifacts.filter((a) => a.project_id === selectedProjectId);
+  }, [artifacts, selectedProjectId]);
+
+  const projectSubfolders = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const map = new Map<string, number>();
+    projectArtifacts.forEach((a) => {
+      const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
+      map.set(sub, (map.get(sub) || 0) + 1);
+    });
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  }, [projectArtifacts, selectedProjectId]);
 
   return (
     <div className="min-h-screen bg-[#FAFAF8] text-[#111111] flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974]">
@@ -644,80 +668,120 @@ export default function App() {
                     const count = artifacts.filter((a) => a.project_id === proj.id).length;
 
                     return (
-                      <div
-                        key={proj.id}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                        }}
-                        onDragEnter={(e) => {
-                          e.preventDefault();
-                          setDragOverFolderId(proj.id);
-                        }}
-                        onDragLeave={(e) => {
-                          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                            if (dragOverFolderId === proj.id) {
-                              setDragOverFolderId(null);
+                      <div key={proj.id} className="space-y-0.5">
+                        <div
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.dataTransfer.dropEffect = 'move';
+                          }}
+                          onDragEnter={(e) => {
+                            e.preventDefault();
+                            setDragOverFolderId(proj.id);
+                          }}
+                          onDragLeave={(e) => {
+                            if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                              if (dragOverFolderId === proj.id) {
+                                setDragOverFolderId(null);
+                              }
                             }
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          setDragOverFolderId(null);
-                          const artifactId = e.dataTransfer.getData('text/plain');
-                          if (artifactId) {
-                            handleDropArtifactOnProject(artifactId, proj.id);
-                          }
-                        }}
-                        onClick={() => {
-                          setSelectedProjectId(proj.id);
-                          setActiveTab('projects');
-                        }}
-                        className={`w-full group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
-                          isDragOver
-                            ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] scale-[1.02] shadow-sm font-semibold'
-                            : draggingArtifact
-                            ? isArtifactInThis
-                              ? 'border border-dashed border-neutral-200 bg-neutral-50/50 text-neutral-400 opacity-60'
-                              : 'border border-dashed border-[#19A974]/60 bg-emerald-50/30 hover:bg-[#E8F7F0] text-[#111111]'
-                            : isSelected
-                            ? 'bg-[#E8F7F0] text-[#19A974] font-semibold'
-                            : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className={`w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 transition-transform ${
-                              isDragOver ? 'scale-110' : ''
-                            }`}
-                            style={{ backgroundColor: proj.color || '#19A974' }}
-                          >
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setDragOverFolderId(null);
+                            const artifactId = e.dataTransfer.getData('text/plain');
+                            if (artifactId) {
+                              handleDropArtifactOnProject(artifactId, proj.id);
+                            }
+                          }}
+                          onClick={() => {
+                            if (selectedProjectId !== proj.id) {
+                              setSelectedSubfolder(null);
+                            }
+                            setSelectedProjectId(proj.id);
+                            setActiveTab('projects');
+                          }}
+                          className={`w-full group flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all cursor-pointer select-none ${
+                            isDragOver
+                              ? 'bg-[#E8F7F0] ring-2 ring-[#19A974] text-[#19A974] scale-[1.02] shadow-sm font-semibold'
+                              : draggingArtifact
+                              ? isArtifactInThis
+                                ? 'border border-dashed border-neutral-200 bg-neutral-50/50 text-neutral-400 opacity-60'
+                                : 'border border-dashed border-[#19A974]/60 bg-emerald-50/30 hover:bg-[#E8F7F0] text-[#111111]'
+                              : isSelected
+                              ? 'bg-[#E8F7F0] text-[#19A974] font-semibold'
+                              : 'text-[#6B6B6B] hover:text-[#111111] hover:bg-neutral-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div
+                              className={`w-5 h-5 rounded-md flex items-center justify-center text-white shrink-0 transition-transform ${
+                                isDragOver ? 'scale-110' : ''
+                              }`}
+                              style={{ backgroundColor: proj.color || '#19A974' }}
+                            >
+                              {isDragOver ? (
+                                <FolderOpen className="w-3 h-3" />
+                              ) : (
+                                <Folder className="w-3 h-3" />
+                              )}
+                            </div>
+                            <span className="truncate">{proj.name}</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
                             {isDragOver ? (
-                              <FolderOpen className="w-3 h-3" />
+                              <span className="text-[10px] font-bold text-[#19A974] bg-white px-1.5 py-0.5 rounded shadow-xs animate-bounce">
+                                Move here
+                              </span>
                             ) : (
-                              <Folder className="w-3 h-3" />
+                              <span
+                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                  isSelected
+                                    ? 'bg-[#19A974]/20 text-[#19A974]'
+                                    : 'bg-neutral-100 text-neutral-500'
+                                }`}
+                              >
+                                {count}
+                              </span>
                             )}
                           </div>
-                          <span className="truncate">{proj.name}</span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isDragOver ? (
-                            <span className="text-[10px] font-bold text-[#19A974] bg-white px-1.5 py-0.5 rounded shadow-xs animate-bounce">
-                              Move here
-                            </span>
-                          ) : (
-                            <span
-                              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
-                                isSelected
-                                  ? 'bg-[#19A974]/20 text-[#19A974]'
-                                  : 'bg-neutral-100 text-neutral-500'
-                              }`}
-                            >
-                              {count}
-                            </span>
-                          )}
-                        </div>
+                        {/* Nested Subfolders in sidebar */}
+                        {isSelected && projectSubfolders.length > 0 && (
+                          <div className="ml-5 my-1 pl-2 border-l-2 border-[#19A974]/30 space-y-0.5">
+                            {projectSubfolders.map(({ name: subName, count: subCount }) => {
+                              const isSubActive = selectedSubfolder === subName;
+                              return (
+                                <div
+                                  key={subName}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedSubfolder(isSubActive ? null : subName);
+                                    setActiveTab('projects');
+                                  }}
+                                  className={`flex items-center justify-between px-2 py-1 rounded-lg text-[11px] transition-colors cursor-pointer ${
+                                    isSubActive
+                                      ? 'bg-[#19A974] text-white font-semibold shadow-2xs'
+                                      : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-1.5 truncate">
+                                    <Folder className={`w-3 h-3 shrink-0 ${isSubActive ? 'text-white' : 'text-[#19A974]'}`} />
+                                    <span className="truncate">{subName}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[9px] font-mono px-1 rounded ${
+                                      isSubActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
+                                    }`}
+                                  >
+                                    {subCount}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1176,13 +1240,32 @@ export default function App() {
                   <div>
                     <div className="flex items-center gap-1.5 text-xs text-[#6B6B6B] mb-2">
                       <button
-                        onClick={() => setSelectedProjectId(null)}
+                        onClick={() => {
+                          setSelectedProjectId(null);
+                          setSelectedSubfolder(null);
+                        }}
                         className="hover:text-[#111111] transition-colors cursor-pointer"
                       >
                         Projects
                       </button>
                       <ChevronRight className="w-3 h-3 text-neutral-400" />
-                      <span className="font-semibold text-neutral-900">{activeProject.name}</span>
+                      <button
+                        onClick={() => setSelectedSubfolder(null)}
+                        className={`hover:text-[#111111] transition-colors cursor-pointer ${
+                          !selectedSubfolder ? 'font-semibold text-neutral-900' : 'text-[#6B6B6B]'
+                        }`}
+                      >
+                        {activeProject.name}
+                      </button>
+                      {selectedSubfolder && (
+                        <>
+                          <ChevronRight className="w-3 h-3 text-neutral-400" />
+                          <span className="font-semibold text-[#19A974] flex items-center gap-1">
+                            <Folder className="w-3 h-3" />
+                            <span>{selectedSubfolder}</span>
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -1223,14 +1306,101 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Subfolder Explorer Cards */}
+                {projectSubfolders.length > 0 && (
+                  <div className="space-y-2.5 bg-white border border-[#E7E7E4] rounded-2xl p-4 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#111111] uppercase tracking-wider flex items-center gap-1.5">
+                          <Folder className="w-3.5 h-3.5 text-[#19A974]" />
+                          <span>Subfolders</span>
+                        </span>
+                        <span className="text-[11px] text-[#6B6B6B]">
+                          ({projectSubfolders.length} folder{projectSubfolders.length === 1 ? '' : 's'})
+                        </span>
+                      </div>
+                      {selectedSubfolder && (
+                        <button
+                          onClick={() => setSelectedSubfolder(null)}
+                          className="text-xs font-semibold text-[#19A974] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <span>Show all in project</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                      {/* All Artifacts folder card */}
+                      <button
+                        onClick={() => setSelectedSubfolder(null)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                          selectedSubfolder === null
+                            ? 'bg-neutral-900 border-neutral-900 text-white shadow-xs'
+                            : 'bg-[#FAFAF8] border-[#E7E7E4] hover:border-[#19A974] text-[#111111]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <Folder className={`w-4 h-4 ${selectedSubfolder === null ? 'text-[#19A974]' : 'text-neutral-500'}`} />
+                          <span
+                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                              selectedSubfolder === null ? 'bg-white/20 text-white' : 'bg-neutral-200/70 text-neutral-700'
+                            }`}
+                          >
+                            {projectArtifacts.length}
+                          </span>
+                        </div>
+                        <span className="text-xs font-bold truncate">All Files</span>
+                        <span className={`text-[10px] truncate ${selectedSubfolder === null ? 'text-neutral-300' : 'text-neutral-500'}`}>
+                          All subfolders
+                        </span>
+                      </button>
+
+                      {/* Individual Subfolder cards */}
+                      {projectSubfolders.map(({ name, count }) => {
+                        const isSelected = selectedSubfolder === name;
+                        return (
+                          <button
+                            key={name}
+                            onClick={() => setSelectedSubfolder(isSelected ? null : name)}
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                              isSelected
+                                ? 'bg-[#19A974] border-[#19A974] text-white shadow-xs'
+                                : 'bg-[#FAFAF8] border-[#E7E7E4] hover:border-[#19A974] text-[#111111]'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <Folder className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-[#19A974]'}`} />
+                              <span
+                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                                  isSelected ? 'bg-white/20 text-white' : 'bg-neutral-200/70 text-neutral-700'
+                                }`}
+                              >
+                                {count}
+                              </span>
+                            </div>
+                            <span className="text-xs font-bold truncate">{name}</span>
+                            <span className={`text-[10px] truncate ${isSelected ? 'text-white/80' : 'text-neutral-500'}`}>
+                              {count} {count === 1 ? 'file' : 'files'}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Filter Tabs with real Counts */}
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
                   {(['all', 'images', 'documents', 'presentations', 'code'] as const).map((filter) => {
                     const count = artifacts.filter((a) => {
                       if (a.project_id !== selectedProjectId) return false;
+                      if (selectedSubfolder) {
+                        const sub = (a.metadata?.subfolder as string) || (a.metadata?.category as string) || 'General';
+                        if (sub.toLowerCase() !== selectedSubfolder.toLowerCase()) return false;
+                      }
                       if (filter === 'all') return true;
                       if (filter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes((a.extension || '').toLowerCase());
-                      if (filter === 'documents') return ['pdf', 'docx', 'txt', 'md'].includes((a.extension || '').toLowerCase());
+                      if (filter === 'documents') return ['pdf', 'docx', 'doc', 'txt', 'md', 'gdoc', 'gsheet', 'gslides'].includes((a.extension || '').toLowerCase());
                       if (filter === 'presentations') return ['pptx', 'ppt', 'key'].includes((a.extension || '').toLowerCase());
                       if (filter === 'code') return ['ts', 'tsx', 'js', 'py', 'sql', 'html', 'css', 'json'].includes((a.extension || '').toLowerCase());
                       return false;
