@@ -200,9 +200,14 @@ export async function organizeDeliverable(
 
   if (nameIsGeneric || !displayName) {
     let semanticSeed = '';
-    // Priority 1: User's context prompt — only if it is a REAL per-image prompt,
-    // not just the conversation/page title echoed back by a failed DOM lookup.
-    if (
+    const isDoc = ['gdoc', 'doc', 'docx', 'pdf', 'gsheet', 'gslides'].includes(ext) || ctx.mimeType.includes('document');
+
+    // Priority 1: For document exports with an explicit doc title in altText (e.g. "Repodx Overview"):
+    if (isDoc && ctx.altText && ctx.altText.trim().length > 2 && !isGenericName(ctx.altText)) {
+      semanticSeed = ctx.altText.trim();
+    }
+    // Priority 2: User's context prompt — only if it is a REAL prompt, not page title
+    else if (
       ctx.contextPrompt &&
       ctx.contextPrompt.trim().length > 2 &&
       !isGenericPrompt(ctx.contextPrompt) &&
@@ -210,11 +215,11 @@ export async function organizeDeliverable(
     ) {
       semanticSeed = ctx.contextPrompt.trim();
     }
-    // Priority 2: Alt text (ONLY if non-generic! e.g. reject ", AI generated")
+    // Priority 3: Alt text (ONLY if non-generic! e.g. reject ", AI generated")
     else if (ctx.altText && ctx.altText.trim().length > 2 && !isGenericName(ctx.altText)) {
       semanticSeed = ctx.altText.trim();
     }
-    // Priority 3: Conversation title (e.g. "Habesha Model AI Portrait")
+    // Priority 4: Conversation title (e.g. "Habesha Model AI Portrait")
     else if (ctx.conversationTitle && !isGenericConversationTitle(ctx.conversationTitle)) {
       semanticSeed = ctx.conversationTitle.trim();
     }
@@ -493,7 +498,8 @@ export function extractTopicKeywords(text: string): string[] {
     'and', 'or', 'but', 'is', 'are', 'was', 'were', 'it', 'its', 'this', 'that',
     'create', 'generate', 'make', 'draw', 'design', 'render', 'show', 'please',
     'image', 'photo', 'picture', 'illustration', 'deliverable', 'file',
-    'only', 'new', 'some', 'any', 'my', 'your', 'our', 'another', 'first', 'second'
+    'only', 'new', 'some', 'any', 'my', 'your', 'our', 'another', 'first', 'second',
+    'page', 'pages', 'abt', 'about', 'one', 'two', 'three', 'four', 'five',
   ]);
 
   return text
@@ -508,12 +514,13 @@ function stemWord(word: string): string {
 }
 
 const SYNONYM_CLUSTERS: string[][] = [
-  ['app', 'ui', 'ux', 'dashboard', 'interface', 'screen', 'mockup', 'frontend', 'web', 'page'],
+  ['app', 'ui', 'ux', 'dashboard', 'interface', 'screen', 'mockup', 'frontend', 'web', 'webpage'],
   ['fintech', 'banking', 'bank', 'finance', 'financial', 'payment', 'card', 'crypto', 'wallet', 'money', 'credit', 'debit'],
   ['model', 'fashion', 'clothing', 'dress', 'portrait', 'face', 'habeshan', 'habesha', 'outfit', 'beauty'],
   ['character', 'mascot', 'avatar', 'cartoon', 'baby', 'figure'],
   ['auth', 'authentication', 'login', 'signup', 'register', 'password', 'oauth', 'token'],
   ['database', 'sql', 'postgres', 'schema', 'table', 'migration', 'backend', 'api'],
+  ['doc', 'document', 'spec', 'overview', 'summary', 'report', 'brief', 'prd', 'gdoc', 'guide'],
 ];
 
 /**
@@ -591,7 +598,13 @@ function getCategoryLabel(mimeType: string, ext: string): string {
   if (['ts', 'tsx', 'js', 'jsx', 'py', 'go', 'rs', 'sql', 'html', 'css'].includes(ext)) {
     return 'Code Deliverable';
   }
-  if (['md', 'txt', 'pdf', 'doc', 'docx'].includes(ext)) {
+  if (
+    ['md', 'txt', 'pdf', 'doc', 'docx', 'gdoc', 'gsheet', 'gslides', 'csv', 'xlsx'].includes(ext) ||
+    mimeType.includes('document') ||
+    mimeType.includes('pdf') ||
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('presentation')
+  ) {
     return 'Document';
   }
   return 'Deliverable';
@@ -625,7 +638,14 @@ function pickProjectTheme(
   if (lower.includes('data') || lower.includes('analytics') || lower.includes('report')) {
     return { icon: 'bar-chart', color: '#3B82F6' }; // Blue
   }
-  if (lower.includes('spec') || lower.includes('plan') || lower.includes('doc')) {
+  if (
+    lower.includes('spec') ||
+    lower.includes('plan') ||
+    lower.includes('doc') ||
+    lower.includes('overview') ||
+    ['gdoc', 'doc', 'docx', 'pdf', 'gsheet', 'gslides', 'md', 'txt'].includes(ext) ||
+    mimeType.includes('document')
+  ) {
     return { icon: 'file-text', color: '#F59E0B' }; // Amber
   }
   return { icon: 'folder', color: '#19A974' }; // Orfilo green
@@ -671,7 +691,7 @@ function determineFolderHierarchy(
   }
 
   // 3. Documents & Text
-  if (/(spec|prd|requirement|architecture|plan|rfp|brief)/i.test(combined)) {
+  if (/(spec|prd|requirement|architecture|plan|rfp|brief|overview|summary|guide|doc)/i.test(combined) || ['gdoc', 'docx', 'doc', 'pdf'].includes(ext)) {
     return { category: 'Docs', subfolder: 'Specifications' };
   }
   if (/(copy|email|pitch|ad|marketing|newsletter|article|post)/i.test(combined)) {

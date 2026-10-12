@@ -752,13 +752,11 @@ export async function createServer() {
   // GET /api/v1/extension/download — direct download for Orfilo Chrome Extension ZIP
   app.get('/api/v1/extension/download', (_req: Request, res: Response) => {
     const zipPath = path.resolve(__dirname, 'public', 'orfilo-extension.zip');
-    if (!fs.existsSync(zipPath)) {
-      const extDir = path.resolve(__dirname, 'extension');
-      if (fs.existsSync(extDir)) {
-        try {
-          execSync(`cd "${extDir}" && zip -r "${zipPath}" . -x "*.git*"`, { stdio: 'ignore' });
-        } catch (_) {}
-      }
+    const extDir = path.resolve(__dirname, 'extension');
+    if (fs.existsSync(extDir)) {
+      try {
+        execSync(`cd "${extDir}" && zip -r "${zipPath}" . -x "*.git*"`, { stdio: 'ignore' });
+      } catch (_) {}
     }
 
     if (fs.existsSync(zipPath)) {

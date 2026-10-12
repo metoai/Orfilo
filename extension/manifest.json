@@ -27,6 +27,8 @@
         "*://chat.openai.com/*",
         "*://claude.ai/*",
         "*://gemini.google.com/*",
+        "*://docs.google.com/*",
+        "*://drive.google.com/*",
         "*://v0.dev/*",
         "*://*.midjourney.com/*",
         "http://localhost:3000/*",

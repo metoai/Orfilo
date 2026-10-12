@@ -479,12 +479,53 @@ async function run() {
     assert.strictEqual(orgG4.project_id, geminiProjId1, 'Must correlate back to original Habesha Model project');
     assert.strictEqual(orgG4.project_created, false, 'Must reuse existing project');
 
+    // 6E: Gemini Google Doc capture: prompt="make a 1 page , doc. abt respo.", title="Repodx Overview"
+    console.log('\n   6E: Gemini Google Doc chip capture: title="Repodx Overview", prompt="make a 1 page , doc. abt respo."');
+    const docText = '# Repodx Overview\n\nGoogle Doc: https://docs.google.com/document/d/12345/edit\nCaptured at: ' + new Date().toISOString();
+    const docBase64 = Buffer.from(docText).toString('base64');
+    const resG5 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'repodx-overview.gdoc',
+        mime_type: 'application/vnd.google-apps.document',
+        extension: 'gdoc',
+        size_bytes: docText.length,
+        source_name: 'Gemini',
+        source_url: geminiSessionUrl,
+        conversation_title: 'Habesha Model AI Portrait Prompt - Google Gemini',
+        alt_text: 'Repodx Overview',
+        context_prompt: 'make a 1 page , doc. abt respo.',
+        content_base64: docBase64,
+      }),
+    });
+    assert.strictEqual(resG5.status, 201);
+    const jsonG5 = await resG5.json();
+    const itemG5 = jsonG5.data;
+    const orgG5 = jsonG5.organization;
+    createdArtifactIds.push(itemG5.id);
+    const geminiProjId5 = orgG5.project_id;
+
+    console.log(`     Display Name: "${itemG5.display_name}"`);
+    console.log(`     Project: "${orgG5.project_name}" (Created: ${orgG5.project_created})`);
+    console.log(`     Category / Subfolder: "${orgG5.category}" / "${orgG5.subfolder}"`);
+    console.log(`     Provider Path: "${itemG5.provider_path}"`);
+
+    assert.strictEqual(itemG5.display_name, 'Repodx Overview', 'Must name document after the document title!');
+    assert.notStrictEqual(geminiProjId5, geminiProjId1, 'Document must be isolated from Habesha Model project!');
+    assert.strictEqual(orgG5.category, 'Docs', 'Category must be Docs');
+    assert.strictEqual(orgG5.subfolder, 'Specifications', 'Subfolder must be Specifications');
+
     // Cleanup Test 6 projects
     if (geminiProjId1) await supabase.from('projects').delete().eq('id', geminiProjId1);
     if (geminiProjId2) await supabase.from('projects').delete().eq('id', geminiProjId2);
     if (geminiProjId3) await supabase.from('projects').delete().eq('id', geminiProjId3);
+    if (geminiProjId5) await supabase.from('projects').delete().eq('id', geminiProjId5);
 
-    console.log('\n   ✅ Test 6 Passed: Gemini generic alt-text filtered, prompts converted to deliverable names, & prompt separation verified!\n');
+    console.log('\n   ✅ Test 6 Passed: Gemini generic alt-text filtered, prompts converted, Google Docs captured & isolated!\n');
 
     console.log('🎉 ALL SMART ORGANIZATION & MULTI-TOPIC TESTS PASSED SUCCESSFULLY!');
   } finally {

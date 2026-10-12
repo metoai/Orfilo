@@ -11,6 +11,8 @@
   // ---------------------------------------------------------------------------
   function detectPlatform() {
     const host = window.location.hostname.toLowerCase();
+    if (host.includes('docs.google.com')) return 'Google Docs';
+    if (host.includes('drive.google.com')) return 'Google Drive';
     if (host.includes('chatgpt.com') || host.includes('chat.openai.com')) return 'ChatGPT';
     if (host.includes('claude.ai')) return 'Claude';
     if (host.includes('gemini.google.com')) return 'Gemini';
@@ -436,9 +438,190 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 6. DOM SCANNER & OBSERVER
+  // 6. ATTACH TO DOCUMENT CARDS & CHIPS (GEMINI GOOGLE DOCS, DRIVE CHIPS, ATTACHMENTS)
+  // ---------------------------------------------------------------------------
+  function attachToDocumentCard(targetElement) {
+    if (targetElement.getAttribute('data-orfilo-attached')) return;
+    targetElement.setAttribute('data-orfilo-attached', 'true');
+
+    // Find the enclosing card container or chip
+    const card =
+      targetElement.closest('.drive-chip, .file-chip, [class*="chip"], [class*="card"], [class*="container"], [data-doc-id], [data-drive-id]') ||
+      targetElement.parentElement;
+
+    if (card && card.getAttribute('data-orfilo-attached')) return;
+
+    // Find the document link URL
+    let docUrl = '';
+    if (targetElement.tagName === 'A' && targetElement.href) {
+      docUrl = targetElement.href;
+    } else {
+      const innerLink = card ? card.querySelector('a[href*="docs.google.com"], a[href*="drive.google.com"], a[href]') : null;
+      docUrl = innerLink ? innerLink.href : (targetElement.getAttribute('data-url') || '');
+    }
+
+    if (!docUrl || docUrl.startsWith('javascript:')) return;
+    if (card) card.setAttribute('data-orfilo-attached', 'true');
+
+    // Extract clean document title
+    let docTitle = '';
+    if (card) {
+      // Look for title text inside card, excluding control labels
+      const lines = (card.innerText || card.textContent || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => {
+          const low = l.toLowerCase();
+          return low && !['google docs', 'google drive', 'docs', 'open', 'view', 'edit', 'download'].includes(low);
+        });
+      if (lines.length > 0) docTitle = lines[0];
+    }
+    if (!docTitle && targetElement.innerText) {
+      docTitle = targetElement.innerText.trim();
+    }
+    if (!docTitle || ['open', 'google docs', 'view'].includes(docTitle.toLowerCase())) {
+      docTitle = 'Google Doc Overview';
+    }
+
+    const btn = createCaptureButton('Save to Orfilo');
+    btn.classList.add('orfilo-btn-doc');
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      setButtonState(btn, 'saving');
+      const ctx = extractSurroundingContext(card || targetElement);
+
+      try {
+        // Attempt to fetch doc export text if accessible
+        let docContent = '';
+        const docIdMatch = docUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+        if (docIdMatch && docIdMatch[1]) {
+          try {
+            const exportRes = await fetch(`https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`, {
+              credentials: 'include',
+            });
+            if (exportRes.ok) {
+              docContent = await exportRes.text();
+            }
+          } catch (_) {}
+        }
+
+        const response = await chrome.runtime.sendMessage({
+          action: 'CAPTURE_ARTIFACT',
+          payload: {
+            type: 'document',
+            docUrl: docUrl,
+            title: docTitle,
+            docContent: docContent || '',
+            sourceName: platformName,
+            conversationTitle: ctx.conversationTitle,
+            promptText: ctx.promptText,
+            sourceUrl: ctx.sourceUrl,
+          },
+        });
+
+        if (response && response.success) {
+          setButtonState(btn, 'saved');
+        } else {
+          setButtonState(btn, 'error', response?.error || 'Save failed');
+        }
+      } catch (err) {
+        setButtonState(btn, 'error', 'Error');
+      }
+    });
+
+    // Placement: place next to "Open" button if found, or append inside card
+    if (card) {
+      const actionBtn = card.querySelector('button, [role="button"], a.open-btn, [class*="action"], [class*="button"]');
+      if (actionBtn && actionBtn.parentElement) {
+        actionBtn.parentElement.appendChild(btn);
+      } else {
+        card.style.position = 'relative';
+        btn.classList.add('orfilo-btn-doc-floating');
+        card.appendChild(btn);
+      }
+    } else {
+      targetElement.insertAdjacentElement('afterend', btn);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. ATTACH TO STANDALONE GOOGLE DOCS EDITOR PAGE (docs.google.com/document/*)
+  // ---------------------------------------------------------------------------
+  function attachToStandaloneDoc() {
+    if (document.getElementById('orfilo-standalone-doc-btn')) return;
+
+    const getDocTitle = () => {
+      const input = document.querySelector('input.docs-title-input');
+      if (input && input.value) return input.value.trim();
+      return document.title.replace(/\s*[-–]\s*Google\s+Docs.*$/i, '').trim() || 'Untitled Document';
+    };
+
+    const btn = createCaptureButton('Save to Orfilo');
+    btn.id = 'orfilo-standalone-doc-btn';
+    btn.classList.add('orfilo-btn-standalone');
+
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      setButtonState(btn, 'saving');
+      const docTitle = getDocTitle();
+      const docUrl = window.location.href;
+
+      let docContent = '';
+      const docIdMatch = docUrl.match(/\/document\/d\/([a-zA-Z0-9-_]+)/);
+      if (docIdMatch && docIdMatch[1]) {
+        try {
+          const exportRes = await fetch(`https://docs.google.com/document/d/${docIdMatch[1]}/export?format=txt`, {
+            credentials: 'include',
+          });
+          if (exportRes.ok) {
+            docContent = await exportRes.text();
+          }
+        } catch (_) {}
+      }
+
+      try {
+        const response = await chrome.runtime.sendMessage({
+          action: 'CAPTURE_ARTIFACT',
+          payload: {
+            type: 'document',
+            docUrl: docUrl,
+            title: docTitle,
+            docContent: docContent || '',
+            sourceName: 'Google Docs',
+            conversationTitle: docTitle,
+            promptText: '',
+            sourceUrl: docUrl,
+          },
+        });
+
+        if (response && response.success) {
+          setButtonState(btn, 'saved');
+        } else {
+          setButtonState(btn, 'error', response?.error || 'Save failed');
+        }
+      } catch (err) {
+        setButtonState(btn, 'error', 'Error');
+      }
+    });
+
+    document.body.appendChild(btn);
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8. DOM SCANNER & OBSERVER
   // ---------------------------------------------------------------------------
   function scanDOM() {
+    // 0. Standalone Google Docs page
+    if (window.location.hostname.includes('docs.google.com')) {
+      attachToStandaloneDoc();
+      return;
+    }
+
     // 1. Scan code blocks
     const preBlocks = document.querySelectorAll('pre');
     preBlocks.forEach((pre) => attachToCodeBlock(pre));
@@ -446,7 +629,6 @@
     // 2. Scan images in message contents or output viewports
     const images = document.querySelectorAll('img');
     images.forEach((img) => {
-      // Check if image is loaded or has valid dimensions
       if (img.naturalWidth > 120 || img.width > 120) {
         attachToImage(img);
       } else {
@@ -457,6 +639,12 @@
         }, { once: true });
       }
     });
+
+    // 3. Scan Google Docs cards, Drive chips, and document export links in AI chat
+    const docLinks = document.querySelectorAll(
+      'a[href*="docs.google.com/document"], a[href*="drive.google.com"], a[href*="docs.google.com/spreadsheets"], a[href*="docs.google.com/presentation"], [data-drive-id], [data-doc-id], drive-file-chip, doc-chip, [class*="drive-chip"], [class*="file-chip"]'
+    );
+    docLinks.forEach((el) => attachToDocumentCard(el));
   }
 
   // Initial scan
