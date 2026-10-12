@@ -440,12 +440,51 @@ async function run() {
     assert.notStrictEqual(geminiProjId3, geminiProjId1, 'UI must be separated from Habesha Model!');
     assert.notStrictEqual(geminiProjId3, geminiProjId2, 'UI must be separated from Baby Character!');
 
+    // 6D: User in Gemini says "You said genertae another model" (with screen-reader prefix & typo!)
+    console.log('\n   6D: Gemini prompt="You said genertae another model" -> Must generate "Habesha Model Portrait"');
+    const resG4 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'ai-generated.jpg',
+        mime_type: 'image/jpeg',
+        extension: 'jpg',
+        size_bytes: 119000,
+        source_name: 'Gemini',
+        source_url: geminiSessionUrl,
+        conversation_title: 'Habesha Model AI Portrait Prompt - Google Gemini',
+        alt_text: ', AI generated',
+        context_prompt: 'You said genertae another model',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resG4.status, 201);
+    const jsonG4 = await resG4.json();
+    const itemG4 = jsonG4.data;
+    const orgG4 = jsonG4.organization;
+    createdArtifactIds.push(itemG4.id);
+
+    console.log(`     Display Name: "${itemG4.display_name}"`);
+    console.log(`     Project: "${orgG4.project_name}" (Reused: ${!orgG4.project_created})`);
+    console.log(`     Provider Path: "${itemG4.provider_path}"`);
+
+    assert.notStrictEqual(itemG4.display_name, 'You Said Genertae Another Model', 'Must NOT literally name artifact the raw prompt!');
+    assert.ok(
+      itemG4.display_name === 'Habesha Model Portrait' || itemG4.display_name.startsWith('Habesha Model'),
+      `Expected deliverable name starting with Habesha Model, got ${itemG4.display_name}`
+    );
+    assert.strictEqual(orgG4.project_id, geminiProjId1, 'Must correlate back to original Habesha Model project');
+    assert.strictEqual(orgG4.project_created, false, 'Must reuse existing project');
+
     // Cleanup Test 6 projects
     if (geminiProjId1) await supabase.from('projects').delete().eq('id', geminiProjId1);
     if (geminiProjId2) await supabase.from('projects').delete().eq('id', geminiProjId2);
     if (geminiProjId3) await supabase.from('projects').delete().eq('id', geminiProjId3);
 
-    console.log('\n   ✅ Test 6 Passed: Gemini generic alt-text filtered & prompt separation verified!\n');
+    console.log('\n   ✅ Test 6 Passed: Gemini generic alt-text filtered, prompts converted to deliverable names, & prompt separation verified!\n');
 
     console.log('🎉 ALL SMART ORGANIZATION & MULTI-TOPIC TESTS PASSED SUCCESSFULLY!');
   } finally {

@@ -220,13 +220,28 @@
           walker = walker.parentElement;
         }
 
+        function extractTextFromQueryElement(queryEl) {
+          if (!queryEl) return '';
+          const specificEl = queryEl.querySelector('.query-text, [data-test-id="user-query"]') || queryEl;
+          let text = '';
+          try {
+            const clone = specificEl.cloneNode(true);
+            clone.querySelectorAll('.cdk-visually-hidden, [aria-hidden="true"]').forEach((el) => el.remove());
+            text = (clone.innerText || clone.textContent || '').trim();
+          } catch (_) {
+            text = (specificEl.innerText || specificEl.textContent || '').trim();
+          }
+          text = text.replace(/^(you\s+said|you\s+asked|user\s+said|user:|prompt:)[\s\n:]*/i, '').trim();
+          return text;
+        }
+
         if (foundModelTurn) {
           // Walk backwards through siblings to find the nearest preceding user-query
           let sibling = foundModelTurn.previousElementSibling;
           while (sibling && !promptText) {
-            const queryEl = sibling.querySelector('user-query, .query-text, .user-query-container, [data-test-id="user-query"]');
+            const queryEl = sibling.querySelector('.query-text, [data-test-id="user-query"], user-query, .user-query-container');
             if (queryEl) {
-              const text = (queryEl.innerText || queryEl.textContent || '').trim();
+              const text = extractTextFromQueryElement(queryEl);
               if (text.length > 2) { promptText = text.slice(0, 400); }
             }
             sibling = sibling.previousElementSibling;
@@ -255,7 +270,7 @@
                 } catch(_e) {}
               }
               if (bestQuery) {
-                const text = (bestQuery.innerText || bestQuery.textContent || '').trim();
+                const text = extractTextFromQueryElement(bestQuery);
                 if (text.length > 2) { promptText = text.slice(0, 400); }
               }
             }
@@ -267,7 +282,7 @@
               );
               const bestQueryEl = preceding.length > 0 ? preceding[preceding.length - 1] : geminiQueries[geminiQueries.length - 1];
               if (bestQueryEl) {
-                const text = (bestQueryEl.innerText || bestQueryEl.textContent || '').trim();
+                const text = extractTextFromQueryElement(bestQueryEl);
                 if (text.length > 2) { promptText = text.slice(0, 400); }
               }
             }
