@@ -148,10 +148,26 @@ export async function organizeDeliverable(
   // If name is generic or missing, derive from contextPrompt, altText, or conversationTitle
   const nameIsGeneric = isGenericName(displayName) || isGenericName(originalStem);
 
+  // Guard: if the prompt is essentially just the chat title echoed back (common Gemini fallback failure),
+  // treat it as non-discriminating and skip to alt text / conversation title.
+  function promptIsJustTitle(prompt: string): boolean {
+    if (!prompt) return false;
+    const p = prompt.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const t = (ctx.conversationTitle || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    if (!t || t.length < 4) return false;
+    return p === t || p.includes(t) || t.includes(p);
+  }
+
   if (nameIsGeneric || !displayName) {
     let semanticSeed = '';
-    // Priority 1: User's context prompt (what the user actually asked for)
-    if (ctx.contextPrompt && ctx.contextPrompt.trim().length > 2 && !isGenericName(ctx.contextPrompt)) {
+    // Priority 1: User's context prompt — only if it is a REAL per-image prompt,
+    // not just the conversation/page title echoed back by a failed DOM lookup.
+    if (
+      ctx.contextPrompt &&
+      ctx.contextPrompt.trim().length > 2 &&
+      !isGenericName(ctx.contextPrompt) &&
+      !promptIsJustTitle(ctx.contextPrompt)
+    ) {
       semanticSeed = ctx.contextPrompt.trim();
     }
     // Priority 2: Alt text (ONLY if non-generic! e.g. reject ", AI generated")
@@ -162,6 +178,7 @@ export async function organizeDeliverable(
     else if (ctx.conversationTitle && !isGenericConversationTitle(ctx.conversationTitle)) {
       semanticSeed = ctx.conversationTitle.trim();
     }
+
 
     const derivedTitle = cleanPromptToTitle(semanticSeed);
     if (derivedTitle.length >= 2 && !isGenericName(derivedTitle)) {

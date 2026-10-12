@@ -196,21 +196,80 @@
       }
 
       // 2. Specific Google Gemini DOM detection
+      // Strategy: each image is inside a model-response turn. We walk UP from the image
+      // to find its parent model-response container, then look at preceding sibling turns
+      // for the nearest user-query. Falls back to bounding-rect proximity, then DOM order.
       if (!promptText) {
-        // In Gemini, user prompt is inside <user-query> or .query-text
-        const geminiQueries = Array.from(
-          document.querySelectorAll('user-query, .query-text, .user-query-container, [data-test-id="user-query"]')
-        );
-        if (geminiQueries.length > 0) {
-          // Find the last user query that appears before this element
-          const preceding = geminiQueries.filter(
-            (q) => (element.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_PRECEDING) !== 0
+        const MODEL_TURN_SELECTORS = [
+          'model-response', '.model-response', 'message-item',
+          '.conversation-turn', '[data-turn-type="model"]',
+          'response-container', '.response-container-content', '.response',
+        ];
+
+        // Walk up the DOM tree from the image to find its parent model-response turn
+        let foundModelTurn = null;
+        let walker = element.parentElement;
+        while (walker && walker !== document.body) {
+          for (const sel of MODEL_TURN_SELECTORS) {
+            if (walker.matches && walker.matches(sel)) {
+              foundModelTurn = walker;
+              break;
+            }
+          }
+          if (foundModelTurn) break;
+          walker = walker.parentElement;
+        }
+
+        if (foundModelTurn) {
+          // Walk backwards through siblings to find the nearest preceding user-query
+          let sibling = foundModelTurn.previousElementSibling;
+          while (sibling && !promptText) {
+            const queryEl = sibling.querySelector('user-query, .query-text, .user-query-container, [data-test-id="user-query"]');
+            if (queryEl) {
+              const text = (queryEl.innerText || queryEl.textContent || '').trim();
+              if (text.length > 2) { promptText = text.slice(0, 400); }
+            }
+            sibling = sibling.previousElementSibling;
+          }
+        }
+
+        // Fallback A: use bounding rect to find the closest user-query ABOVE the image
+        if (!promptText) {
+          const geminiQueries = Array.from(
+            document.querySelectorAll('user-query, .query-text, .user-query-container, [data-test-id="user-query"]')
           );
-          const bestQueryEl = preceding.length > 0 ? preceding[preceding.length - 1] : geminiQueries[geminiQueries.length - 1];
-          if (bestQueryEl) {
-            const text = (bestQueryEl.innerText || bestQueryEl.textContent || '').trim();
-            if (text.length > 2) {
-              promptText = text.slice(0, 400);
+          if (geminiQueries.length > 0) {
+            let imgRect = null;
+            try { imgRect = element.getBoundingClientRect(); } catch(_e) {}
+
+            if (imgRect) {
+              let bestQuery = null;
+              let bestDist = Infinity;
+              for (const q of geminiQueries) {
+                try {
+                  const qRect = q.getBoundingClientRect();
+                  if (qRect.bottom <= imgRect.top + 20) {
+                    const dist = imgRect.top - qRect.bottom;
+                    if (dist < bestDist) { bestDist = dist; bestQuery = q; }
+                  }
+                } catch(_e) {}
+              }
+              if (bestQuery) {
+                const text = (bestQuery.innerText || bestQuery.textContent || '').trim();
+                if (text.length > 2) { promptText = text.slice(0, 400); }
+              }
+            }
+
+            // Fallback B: last preceding user-query by DOM document order
+            if (!promptText) {
+              const preceding = geminiQueries.filter(
+                (q) => (element.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_PRECEDING) !== 0
+              );
+              const bestQueryEl = preceding.length > 0 ? preceding[preceding.length - 1] : geminiQueries[geminiQueries.length - 1];
+              if (bestQueryEl) {
+                const text = (bestQueryEl.innerText || bestQueryEl.textContent || '').trim();
+                if (text.length > 2) { promptText = text.slice(0, 400); }
+              }
             }
           }
         }
