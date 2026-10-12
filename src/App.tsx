@@ -1172,39 +1172,50 @@ export default function App() {
             {/* View: Project Detail */}
             {selectedProjectId && activeProject && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => setSelectedProjectId(null)}
-                      className="text-xs text-[#6B6B6B] hover:text-[#111111] underline cursor-pointer"
-                    >
-                      ← Back to Projects
-                    </button>
-                    <span className="text-[#E7E7E4]">/</span>
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#E7E7E4]">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-[#6B6B6B] mb-2">
+                      <button
+                        onClick={() => setSelectedProjectId(null)}
+                        className="hover:text-[#111111] transition-colors cursor-pointer"
+                      >
+                        Projects
+                      </button>
+                      <ChevronRight className="w-3 h-3 text-neutral-400" />
+                      <span className="font-semibold text-neutral-900">{activeProject.name}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3">
                       <div
-                        className="w-5 h-5 rounded-md flex items-center justify-center text-white"
+                        className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-xs"
                         style={{ backgroundColor: activeProject.color || '#19A974' }}
                       >
-                        <Folder className="w-3 h-3" />
+                        <Folder className="w-4 h-4" />
                       </div>
-                      <h1 className="text-xl font-bold text-[#111111]">{activeProject.name}</h1>
+                      <div>
+                        <h1 className="text-xl sm:text-2xl font-bold text-[#111111] tracking-tight">
+                          {activeProject.name}
+                        </h1>
+                        <p className="text-xs text-[#6B6B6B] mt-0.5 max-w-xl">
+                          {activeProject.description || 'Deliverables organized into this project workspace'}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <button
                       onClick={() => {
                         setProjectToEdit(activeProject);
                         setIsProjectModalOpen(true);
                       }}
-                      className="px-3 py-1.5 border border-[#E7E7E4] hover:border-[#111111] rounded-xl text-xs font-medium text-[#111111] bg-white cursor-pointer"
+                      className="px-3.5 py-2 border border-[#E7E7E4] hover:border-[#111111] rounded-xl text-xs font-semibold text-[#111111] bg-white transition-colors cursor-pointer shadow-2xs"
                     >
                       Edit Project
                     </button>
                     <button
                       onClick={() => setIsUploadOpen(true)}
-                      className="px-3.5 py-1.5 bg-[#19A974] text-white rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Artifact</span>
@@ -1212,25 +1223,40 @@ export default function App() {
                   </div>
                 </div>
 
-                <p className="text-xs text-[#6B6B6B] max-w-xl">
-                  {activeProject.description || 'No description provided.'}
-                </p>
+                {/* Filter Tabs with real Counts */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                  {(['all', 'images', 'documents', 'presentations', 'code'] as const).map((filter) => {
+                    const count = artifacts.filter((a) => {
+                      if (a.project_id !== selectedProjectId) return false;
+                      if (filter === 'all') return true;
+                      if (filter === 'images') return ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes((a.extension || '').toLowerCase());
+                      if (filter === 'documents') return ['pdf', 'docx', 'txt', 'md'].includes((a.extension || '').toLowerCase());
+                      if (filter === 'presentations') return ['pptx', 'ppt', 'key'].includes((a.extension || '').toLowerCase());
+                      if (filter === 'code') return ['ts', 'tsx', 'js', 'py', 'sql', 'html', 'css', 'json'].includes((a.extension || '').toLowerCase());
+                      return false;
+                    }).length;
 
-                {/* Filter Tabs */}
-                <div className="flex gap-2 border-b border-[#E7E7E4] pb-2 text-xs">
-                  {(['all', 'images', 'documents', 'presentations', 'code'] as const).map((filter) => (
-                    <button
-                      key={filter}
-                      onClick={() => setTypeFilter(filter)}
-                      className={`px-3 py-1.5 rounded-lg font-medium capitalize transition-colors cursor-pointer ${
-                        typeFilter === filter
-                          ? 'bg-[#111111] text-white'
-                          : 'text-[#6B6B6B] hover:text-[#111111]'
-                      }`}
-                    >
-                      {filter}
-                    </button>
-                  ))}
+                    return (
+                      <button
+                        key={filter}
+                        onClick={() => setTypeFilter(filter)}
+                        className={`px-3.5 py-1.5 rounded-xl font-medium capitalize transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                          typeFilter === filter
+                            ? 'bg-[#111111] text-white shadow-xs'
+                            : 'bg-white border border-[#E7E7E4] text-[#6B6B6B] hover:text-[#111111] hover:border-neutral-300'
+                        }`}
+                      >
+                        <span>{filter}</span>
+                        <span
+                          className={`text-[10px] px-1.5 py-0.2 rounded-md ${
+                            typeFilter === filter ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-600'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Artifacts in Project */}

@@ -324,7 +324,128 @@ async function run() {
     if (habeshanProjectId) await supabase.from('projects').delete().eq('id', habeshanProjectId);
     if (uiProjectId) await supabase.from('projects').delete().eq('id', uiProjectId);
 
-    console.log('\n   ✅ Test 5 Passed: Single chat topic disambiguation verified successfully!\n');
+    // -------------------------------------------------------------------------
+    // TEST 6: Google Gemini Alt-Text Bug & Dynamic Prompt Isolation
+    // 6A: alt_text: ", AI generated", empty prompt -> MUST use conversation title, NEVER ", AI Generated"
+    // 6B: alt_text: ", AI generated", prompt: "baby character" -> MUST name "Baby Character" & separate project
+    // 6C: alt_text: ", AI generated", prompt: "create modern banking dashboard ui" -> MUST name "Modern Banking Dashboard UI"
+    // -------------------------------------------------------------------------
+    console.log('--- 6. Testing Google Gemini Alt-Text Bug & Dynamic Prompt Isolation ---');
+    const geminiSessionUrl = `https://gemini.google.com/app/test-gemini-${Date.now()}`;
+
+    // 6A: Gemini with generic alt text and prompt in title
+    console.log('   6A: Gemini alt=", AI generated", title="Habesha Model AI Portrait Prompt - Google Gemini"');
+    const resG1 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'ai-generated.jpg',
+        mime_type: 'image/jpeg',
+        extension: 'jpg',
+        size_bytes: 148811,
+        source_name: 'Gemini',
+        source_url: geminiSessionUrl,
+        conversation_title: 'Habesha Model AI Portrait Prompt - Google Gemini',
+        alt_text: ', AI generated',
+        context_prompt: '',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resG1.status, 201);
+    const jsonG1 = await resG1.json();
+    const itemG1 = jsonG1.data;
+    const orgG1 = jsonG1.organization;
+    createdArtifactIds.push(itemG1.id);
+    const geminiProjId1 = orgG1.project_id;
+
+    console.log(`     Display Name: "${itemG1.display_name}"`);
+    console.log(`     Project: "${orgG1.project_name}"`);
+    console.log(`     Thumbnail URL: "${itemG1.metadata?.thumbnail_url}"`);
+
+    assert.notStrictEqual(itemG1.display_name, ', AI Generated', 'Must NOT name artifact ", AI Generated"');
+    assert.notStrictEqual(orgG1.project_name, ', AI Generated', 'Must NOT name project ", AI Generated"');
+    assert.ok(orgG1.project_name.startsWith('Habesha Model'), `Expected project starting with Habesha Model, got ${orgG1.project_name}`);
+    assert.ok(itemG1.metadata?.thumbnail_url, 'Must include thumbnail_url in metadata atomically');
+
+    // 6B: User in Gemini asks for "baby character"
+    console.log('\n   6B: Gemini alt=", AI generated", prompt="baby character"');
+    const resG2 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'ai-generated.jpg',
+        mime_type: 'image/jpeg',
+        extension: 'jpg',
+        size_bytes: 132860,
+        source_name: 'Gemini',
+        source_url: geminiSessionUrl,
+        conversation_title: 'Habesha Model AI Portrait Prompt - Google Gemini',
+        alt_text: ', AI generated',
+        context_prompt: 'baby character with curly hair',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resG2.status, 201);
+    const jsonG2 = await resG2.json();
+    const itemG2 = jsonG2.data;
+    const orgG2 = jsonG2.organization;
+    createdArtifactIds.push(itemG2.id);
+    const geminiProjId2 = orgG2.project_id;
+
+    console.log(`     Display Name: "${itemG2.display_name}"`);
+    console.log(`     Project: "${orgG2.project_name}" (Created: ${orgG2.project_created})`);
+
+    assert.strictEqual(itemG2.display_name, 'Baby Character with Curly Hair');
+    assert.notStrictEqual(geminiProjId2, geminiProjId1, 'Baby character must be in separate project from Habesha Model!');
+    assert.ok(orgG2.project_name.includes('Baby Character'), 'Project must be named Baby Character');
+
+    // 6C: User in Gemini asks for "create modern banking dashboard ui"
+    console.log('\n   6C: Gemini alt=", AI generated", prompt="create modern banking dashboard ui"');
+    const resG3 = await fetch(`${BASE_URL}/api/v1/artifacts`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${rawToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        original_name: 'ai-generated.jpg',
+        mime_type: 'image/jpeg',
+        extension: 'jpg',
+        size_bytes: 125000,
+        source_name: 'Gemini',
+        source_url: geminiSessionUrl,
+        conversation_title: 'Habesha Model AI Portrait Prompt - Google Gemini',
+        alt_text: ', AI generated',
+        context_prompt: 'create modern banking dashboard ui',
+        content_base64: tinyPngBase64,
+      }),
+    });
+    assert.strictEqual(resG3.status, 201);
+    const jsonG3 = await resG3.json();
+    const itemG3 = jsonG3.data;
+    const orgG3 = jsonG3.organization;
+    createdArtifactIds.push(itemG3.id);
+    const geminiProjId3 = orgG3.project_id;
+
+    console.log(`     Display Name: "${itemG3.display_name}"`);
+    console.log(`     Project: "${orgG3.project_name}" (Created: ${orgG3.project_created})`);
+
+    assert.ok(itemG3.display_name.includes('Banking Dashboard UI') || itemG3.display_name.includes('Modern Banking Dashboard'));
+    assert.notStrictEqual(geminiProjId3, geminiProjId1, 'UI must be separated from Habesha Model!');
+    assert.notStrictEqual(geminiProjId3, geminiProjId2, 'UI must be separated from Baby Character!');
+
+    // Cleanup Test 6 projects
+    if (geminiProjId1) await supabase.from('projects').delete().eq('id', geminiProjId1);
+    if (geminiProjId2) await supabase.from('projects').delete().eq('id', geminiProjId2);
+    if (geminiProjId3) await supabase.from('projects').delete().eq('id', geminiProjId3);
+
+    console.log('\n   ✅ Test 6 Passed: Gemini generic alt-text filtered & prompt separation verified!\n');
 
     console.log('🎉 ALL SMART ORGANIZATION & MULTI-TOPIC TESTS PASSED SUCCESSFULLY!');
   } finally {

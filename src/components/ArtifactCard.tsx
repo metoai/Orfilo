@@ -38,9 +38,7 @@ export function ArtifactCard({
   const meta = (artifact.metadata || {}) as Record<string, any>;
   const imageUrl: string =
     (typeof meta.thumbnail_url === 'string' && meta.thumbnail_url) ||
-    (meta.content_base64
-      ? `data:${artifact.mime_type || 'image/png'};base64,${meta.content_base64}`
-      : `/storage/artifacts/${artifact.id}.${ext}`);
+    `/api/v1/artifacts/${artifact.id}/file`;
 
   const getFileIcon = (extStr: string) => {
     if (['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(extStr)) {
@@ -76,67 +74,75 @@ export function ArtifactCard({
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className={`group relative bg-white border rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col justify-between select-none shadow-2xs hover:shadow-md ${
+      className={`group relative bg-white border rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer flex flex-col justify-between select-none shadow-2xs hover:shadow-lg hover:-translate-y-0.5 ${
         isDragging
           ? 'opacity-40 scale-[0.98] border-dashed border-[#19A974] ring-2 ring-[#19A974]/30 shadow-none'
           : highlightMatch
           ? 'border-[#19A974] ring-2 ring-[#19A974]/20 shadow-sm'
-          : 'border-[#E7E7E4] hover:border-[#19A974]/80'
+          : 'border-[#E7E7E4] hover:border-[#19A974]'
       }`}
     >
       {/* Top Media / Thumbnail Section */}
-      {isImage && !imageError ? (
-        <div className="relative w-full h-40 bg-neutral-100 overflow-hidden border-b border-neutral-100 flex items-center justify-center">
-          <img
-            src={imageUrl}
-            alt={artifact.display_name}
-            onError={() => setImageError(true)}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-            loading="lazy"
-          />
-          {/* Subtle gradient overlay on hover */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
-            <span className="text-[10px] text-white/90 font-medium flex items-center gap-1">
-              <Eye className="w-3 h-3" />
-              <span>Preview</span>
+      {isImage ? (
+        <div className="relative w-full h-44 bg-neutral-100 overflow-hidden border-b border-neutral-100 flex items-center justify-center">
+          {!imageError ? (
+            <img
+              src={imageUrl}
+              alt={artifact.display_name}
+              onError={() => setImageError(true)}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              loading="lazy"
+            />
+          ) : (
+            <div className="flex flex-col items-center justify-center text-neutral-400 gap-1.5 p-4">
+              <ImageIcon className="w-8 h-8 opacity-40 text-neutral-500" />
+              <span className="text-[10px] font-mono text-neutral-400">Visual Deliverable</span>
+            </div>
+          )}
+
+          {/* Hover Action Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3">
+            <span className="text-[11px] text-white font-medium flex items-center gap-1.5 drop-shadow-xs">
+              <Eye className="w-3.5 h-3.5" />
+              <span>View Details</span>
             </span>
           </div>
 
-          {/* Top Floating Badge */}
+          {/* Top Floating Badges */}
           <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-            <span className="font-mono text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-black/60 text-white backdrop-blur-xs shadow-xs">
+            <span className="font-mono text-[9px] uppercase font-bold px-2 py-0.5 rounded-md bg-black/75 text-white backdrop-blur-xs shadow-xs">
               {ext}
             </span>
-            <span className="text-[9px] font-semibold px-2 py-0.5 rounded-md bg-white/90 text-neutral-800 backdrop-blur-xs shadow-xs">
+            <span className="text-[9px] font-semibold px-2 py-0.5 rounded-md bg-white/95 text-neutral-800 backdrop-blur-xs shadow-xs">
               {artifact.source_name || 'AI'}
             </span>
           </div>
         </div>
       ) : isCode ? (
-        <div className="w-full h-28 bg-[#16181D] border-b border-neutral-800 p-3 flex flex-col justify-between font-mono text-[10px] relative overflow-hidden">
+        <div className="w-full h-32 bg-[#16181D] border-b border-neutral-800 p-3.5 flex flex-col justify-between font-mono text-[10px] relative overflow-hidden">
           <div className="flex items-center justify-between text-neutral-400 border-b border-neutral-800/80 pb-1.5">
             <div className="flex items-center gap-1.5 text-emerald-400">
-              <CodeIcon className="w-3 h-3" />
+              <CodeIcon className="w-3.5 h-3.5" />
               <span className="uppercase font-bold">{ext}</span>
             </div>
             <span className="text-neutral-500 text-[9px]">{artifact.source_name}</span>
           </div>
-          <p className="text-neutral-300 text-[10px] line-clamp-2 leading-relaxed opacity-90 font-mono">
+          <p className="text-neutral-300 text-[10px] line-clamp-3 leading-relaxed opacity-90 font-mono">
             {artifact.description || `// ${artifact.display_name}`}
           </p>
           <div className="text-[9px] text-neutral-500">Component Deliverable</div>
         </div>
       ) : (
-        <div className="w-full h-24 bg-gradient-to-br from-neutral-50 to-neutral-100 border-b border-neutral-100 p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-white border border-neutral-200/80 flex items-center justify-center text-neutral-600 shadow-2xs">
+        <div className="w-full h-28 bg-gradient-to-br from-neutral-50 to-neutral-100 border-b border-neutral-100 p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white border border-neutral-200/80 flex items-center justify-center text-neutral-600 shadow-2xs">
               {getFileIcon(ext)}
             </div>
             <div>
               <span className="font-mono text-[10px] font-bold uppercase text-neutral-500">
                 {ext}
               </span>
-              <p className="text-[11px] font-medium text-neutral-700">{artifact.source_name}</p>
+              <p className="text-xs font-semibold text-neutral-800">{artifact.source_name}</p>
             </div>
           </div>
         </div>

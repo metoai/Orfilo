@@ -173,22 +173,68 @@
   function extractSurroundingContext(element) {
     let promptText = '';
     try {
-      const turn = element.closest('[data-message-author-role]') || element.closest('article') || element.closest('.agent-turn') || element.closest('.group');
+      // 1. ChatGPT, Claude, and general AI containers
+      const turn =
+        element.closest('[data-message-author-role]') ||
+        element.closest('article') ||
+        element.closest('.agent-turn') ||
+        element.closest('model-response') ||
+        element.closest('.model-response-container') ||
+        element.closest('.response-container') ||
+        element.closest('.group');
+
       if (turn) {
         let prev = turn.previousElementSibling;
         while (prev && !promptText) {
           const text = (prev.innerText || prev.textContent || '').trim();
-          if (text.length > 5 && text.length < 1500) {
+          if (text.length > 3 && text.length < 2000) {
             promptText = text.slice(0, 400);
             break;
           }
           prev = prev.previousElementSibling;
         }
       }
+
+      // 2. Specific Google Gemini DOM detection
+      if (!promptText) {
+        // In Gemini, user prompt is inside <user-query> or .query-text
+        const geminiQueries = Array.from(
+          document.querySelectorAll('user-query, .query-text, .user-query-container, [data-test-id="user-query"]')
+        );
+        if (geminiQueries.length > 0) {
+          // Find the last user query that appears before this element
+          const preceding = geminiQueries.filter(
+            (q) => (element.compareDocumentPosition(q) & Node.DOCUMENT_POSITION_PRECEDING) !== 0
+          );
+          const bestQueryEl = preceding.length > 0 ? preceding[preceding.length - 1] : geminiQueries[geminiQueries.length - 1];
+          if (bestQueryEl) {
+            const text = (bestQueryEl.innerText || bestQueryEl.textContent || '').trim();
+            if (text.length > 2) {
+              promptText = text.slice(0, 400);
+            }
+          }
+        }
+      }
+
+      // 3. Specific Claude & ChatGPT query container fallbacks
+      if (!promptText) {
+        const userMsgs = Array.from(
+          document.querySelectorAll('[data-message-author-role="user"], .font-user-message')
+        );
+        if (userMsgs.length > 0) {
+          const lastUserMsg = userMsgs[userMsgs.length - 1];
+          const text = (lastUserMsg.innerText || lastUserMsg.textContent || '').trim();
+          if (text.length > 2) {
+            promptText = text.slice(0, 400);
+          }
+        }
+      }
     } catch (_) {}
 
-    const conversationTitle = (document.title || '')
-      .replace(/\s*[-–|]\s*(ChatGPT|Claude|Gemini|v0|Midjourney).*$/i, '')
+    const rawTitle = document.title || '';
+    let conversationTitle = rawTitle
+      .replace(/\s*[-–|]\s*(Google\s+Gemini|Gemini|Google|ChatGPT|OpenAI|Claude|Anthropic|v0|Midjourney).*$/i, '')
+      .replace(/[:\s\-_]*(ai\s+portrait\s+prompt|ai\s+prompt|portrait\s+prompt|prompt)$/i, '')
       .trim();
 
     return {

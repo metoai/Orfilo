@@ -483,6 +483,27 @@ export async function createServer() {
       explicitProviderPath: provider_path || null,
     });
 
+    const artifactId = crypto.randomUUID();
+    let localThumbnailUrl: string | undefined = undefined;
+
+    // Save binary content to disk for instant preview rendering
+    if (content_base64 && typeof content_base64 === 'string') {
+      try {
+        const base64Data = content_base64.replace(/^data:[^;]+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const storageDir = path.resolve(__dirname, 'public', 'storage', 'artifacts');
+        if (!fs.existsSync(storageDir)) {
+          fs.mkdirSync(storageDir, { recursive: true });
+        }
+        const fileName = `${artifactId}.${orgResult.extension}`;
+        const filePath = path.join(storageDir, fileName);
+        fs.writeFileSync(filePath, buffer);
+        localThumbnailUrl = `/storage/artifacts/${fileName}`;
+      } catch (writeErr) {
+        console.warn('[Server] Failed to write binary artifact file:', writeErr);
+      }
+    }
+
     const finalMetadata = {
       ...(typeof metadata === 'object' && metadata !== null ? metadata : {}),
       source_url: effectiveSourceUrl || undefined,
@@ -492,11 +513,13 @@ export async function createServer() {
       category: orgResult.category,
       subfolder: orgResult.subfolder,
       organization_time_ms: orgResult.executionTimeMs,
+      thumbnail_url: localThumbnailUrl,
     };
 
     const { data, error } = await db
       .from('artifacts')
       .insert({
+        id: artifactId,
         user_id: req.user!.id,
         project_id: orgResult.projectId || null,
         storage_connection_id: storage_connection_id || null,
@@ -519,37 +542,6 @@ export async function createServer() {
     if (error) {
       res.status(500).json({ error: error.message });
       return;
-    }
-
-    // Save binary content to disk for preview rendering
-    if (content_base64 && typeof content_base64 === 'string') {
-      try {
-        const base64Data = content_base64.replace(/^data:[^;]+;base64,/, '');
-        const buffer = Buffer.from(base64Data, 'base64');
-        const storageDir = path.resolve(__dirname, 'public', 'storage', 'artifacts');
-        if (!fs.existsSync(storageDir)) {
-          fs.mkdirSync(storageDir, { recursive: true });
-        }
-        const fileName = `${data.id}.${orgResult.extension}`;
-        const filePath = path.join(storageDir, fileName);
-        fs.writeFileSync(filePath, buffer);
-
-        const localThumbnailUrl = `/storage/artifacts/${fileName}`;
-        const updatedMetadata = {
-          ...finalMetadata,
-          thumbnail_url: localThumbnailUrl,
-          content_base64: base64Data.length < 1500000 ? base64Data : undefined,
-        };
-
-        await db
-          .from('artifacts')
-          .update({ metadata: updatedMetadata })
-          .eq('id', data.id);
-
-        data.metadata = updatedMetadata;
-      } catch (writeErr) {
-        console.warn('[Server] Failed to write binary artifact file:', writeErr);
-      }
     }
 
     // Log file_event
@@ -921,7 +913,7 @@ Return a structured JSON object with these exact fields:
         middlewareMode: true,
         host: '0.0.0.0',
         port: PORT,
-        hmr: false,
+        hmr: true,
       },
       appType: 'spa',
     });
