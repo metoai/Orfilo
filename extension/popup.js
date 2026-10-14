@@ -1,6 +1,7 @@
 // ==============================================================================
 // ORFILO BROWSER EXTENSION: POPUP SCRIPT
-// Clean Auth-gated lifecycle and real server synchronization
+// In-Popup Self-Contained Auth (Sign In, Sign Up, Pair Token)
+// Zero-redirect authentication; redirects only to view files / dashboard
 // ==============================================================================
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
@@ -11,25 +12,46 @@ document.addEventListener('DOMContentLoaded', async () => {
   const viewApp = document.getElementById('view-app');
   const statusAlert = document.getElementById('statusAlert');
 
-  // Settings
+  // Settings Panel
   const btnSettingsToggle = document.getElementById('btnSettingsToggle');
   const settingsPanel = document.getElementById('settingsPanel');
   const btnCloseSettings = document.getElementById('btnCloseSettings');
   const serverUrlInput = document.getElementById('serverUrlInput');
   const btnSaveServerUrl = document.getElementById('btnSaveServerUrl');
 
-  // Auth View
+  // Segmented Tabs
+  const tabSignIn = document.getElementById('tabSignIn');
+  const tabSignUp = document.getElementById('tabSignUp');
+  const tabToken = document.getElementById('tabToken');
+
+  // Form 1: Sign In
   const loginForm = document.getElementById('loginForm');
   const loginEmail = document.getElementById('loginEmail');
   const loginPassword = document.getElementById('loginPassword');
   const btnLogin = document.getElementById('btnLogin');
   const loginSpinner = document.getElementById('loginSpinner');
   const loginBtnText = document.getElementById('loginBtnText');
-  const linkSignUp = document.getElementById('linkSignUp');
-  const btnGoogleAuth = document.getElementById('btnGoogleAuth');
-  const btnToggleTokenInput = document.getElementById('btnToggleTokenInput');
+
+  // Form 2: Sign Up
+  const signupForm = document.getElementById('signupForm');
+  const signupName = document.getElementById('signupName');
+  const signupEmail = document.getElementById('signupEmail');
+  const signupPassword = document.getElementById('signupPassword');
+  const btnSignUp = document.getElementById('btnSignUp');
+  const signupSpinner = document.getElementById('signupSpinner');
+  const signupBtnText = document.getElementById('signupBtnText');
+
+  // Form 3: Token Pairing
   const tokenPairForm = document.getElementById('tokenPairForm');
   const pairingTokenInput = document.getElementById('pairingTokenInput');
+  const btnPairToken = document.getElementById('btnPairToken');
+  const tokenSpinner = document.getElementById('tokenSpinner');
+  const tokenBtnText = document.getElementById('tokenBtnText');
+
+  // Footer / Alternate Actions
+  const btnGoogleAuth = document.getElementById('btnGoogleAuth');
+  const authFooterPrompt = document.getElementById('authFooterPrompt');
+  const btnToggleAuthMode = document.getElementById('btnToggleAuthMode');
 
   // App View
   const displayUserEmail = document.getElementById('displayUserEmail');
@@ -37,6 +59,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statLastCapture = document.getElementById('statLastCapture');
   const btnOpenDashboard = document.getElementById('btnOpenDashboard');
   const btnDisconnect = document.getElementById('btnDisconnect');
+
+  // Active Tab State: 'signin' | 'signup' | 'token'
+  let currentAuthTab = 'signin';
 
   // Retrieve stored settings
   const stored = await chrome.storage.local.get([
@@ -54,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await checkAuthStatus();
 
   // ---------------------------------------------------------------------------
-  // Alert Helper
+  // Alert Helpers
   // ---------------------------------------------------------------------------
   function showAlert(message, type = 'error') {
     statusAlert.textContent = message;
@@ -67,6 +92,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     statusAlert.textContent = '';
   }
 
+  // ---------------------------------------------------------------------------
+  // Tab Switching Logic
+  // ---------------------------------------------------------------------------
+  function switchAuthTab(tab) {
+    currentAuthTab = tab;
+    hideAlert();
+
+    // Update tab button styles
+    [
+      { btn: tabSignIn, name: 'signin' },
+      { btn: tabSignUp, name: 'signup' },
+      { btn: tabToken, name: 'token' },
+    ].forEach(({ btn, name }) => {
+      if (btn) {
+        const isActive = name === tab;
+        btn.classList.toggle('active', isActive);
+        btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      }
+    });
+
+    // Show corresponding form
+    loginForm.classList.toggle('hidden', tab !== 'signin');
+    signupForm.classList.toggle('hidden', tab !== 'signup');
+    tokenPairForm.classList.toggle('hidden', tab !== 'token');
+
+    // Update footer prompt and button text
+    if (tab === 'signin') {
+      if (authFooterPrompt) authFooterPrompt.textContent = 'New to Orfilo?';
+      if (btnToggleAuthMode) btnToggleAuthMode.textContent = 'Create an account';
+      loginEmail.focus();
+    } else if (tab === 'signup') {
+      if (authFooterPrompt) authFooterPrompt.textContent = 'Already have an account?';
+      if (btnToggleAuthMode) btnToggleAuthMode.textContent = 'Sign in instead';
+      signupEmail.focus();
+    } else {
+      if (authFooterPrompt) authFooterPrompt.textContent = 'Have an account?';
+      if (btnToggleAuthMode) btnToggleAuthMode.textContent = 'Sign in';
+      pairingTokenInput.focus();
+    }
+  }
+
+  tabSignIn.addEventListener('click', () => switchAuthTab('signin'));
+  tabSignUp.addEventListener('click', () => switchAuthTab('signup'));
+  tabToken.addEventListener('click', () => switchAuthTab('token'));
+
+  if (btnToggleAuthMode) {
+    btnToggleAuthMode.addEventListener('click', () => {
+      if (currentAuthTab === 'signin') {
+        switchAuthTab('signup');
+      } else {
+        switchAuthTab('signin');
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Loading State Setters
+  // ---------------------------------------------------------------------------
   function setLoginLoading(isLoading) {
     btnLogin.disabled = isLoading;
     if (isLoading) {
@@ -74,7 +157,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       loginBtnText.textContent = 'Connecting...';
     } else {
       loginSpinner.classList.add('hidden');
-      loginBtnText.textContent = 'Sign In';
+      loginBtnText.textContent = 'Sign In & Pair';
+    }
+  }
+
+  function setSignUpLoading(isLoading) {
+    btnSignUp.disabled = isLoading;
+    if (isLoading) {
+      signupSpinner.classList.remove('hidden');
+      signupBtnText.textContent = 'Creating Account...';
+    } else {
+      signupSpinner.classList.add('hidden');
+      signupBtnText.textContent = 'Create Account & Pair';
+    }
+  }
+
+  function setTokenLoading(isLoading) {
+    btnPairToken.disabled = isLoading;
+    if (isLoading) {
+      tokenSpinner.classList.remove('hidden');
+      tokenBtnText.textContent = 'Verifying...';
+    } else {
+      tokenSpinner.classList.add('hidden');
+      tokenBtnText.textContent = 'Connect with Token';
     }
   }
 
@@ -110,7 +215,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       if (!response.ok) {
-        // Token invalid or unauthorized
         await chrome.storage.local.remove(['orfiloToken', 'orfiloUser']);
         showAuthView();
         return;
@@ -118,16 +222,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const data = await response.json();
       if (data && data.authenticated === true) {
-        showAppView(user || data.user?.email || 'Active Workspace', storage);
+        showAppView(user || data.user?.email || data.user_email || 'Active Workspace', storage);
       } else {
         await chrome.storage.local.remove(['orfiloToken', 'orfiloUser']);
         showAuthView();
       }
     } catch (err) {
-      // Server unreachable - DO NOT BYPASS AUTH
-      console.error('[Orfilo Popup] Server verification error:', err);
+      console.error('[Orfilo Popup] Server check error:', err);
       showAuthView();
-      showAlert('Cannot reach Orfilo server. Please check the server URL or ensure Orfilo is running.', 'error');
+      showAlert('Cannot reach Orfilo server. Ensure the server is running.', 'error');
     }
   }
 
@@ -148,12 +251,35 @@ document.addEventListener('DOMContentLoaded', async () => {
       const date = new Date(stats.lastCaptureTime);
       statLastCapture.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else {
-      statLastCapture.textContent = 'None yet';
+      statLastCapture.textContent = 'Never';
     }
   }
 
+  // Helper: Pair extension with server using JWT
+  async function pairWithJwt(accessToken, serverUrl) {
+    try {
+      const pairRes = await fetch(`${serverUrl}/api/v1/extension/pair`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (pairRes.ok) {
+        const pairData = await pairRes.json().catch(() => ({}));
+        if (pairData && pairData.token) {
+          return pairData.token;
+        }
+      }
+    } catch (e) {
+      console.warn('[Orfilo Popup] Pair endpoint fallback to access token:', e);
+    }
+    return accessToken;
+  }
+
   // ---------------------------------------------------------------------------
-  // Login Form Submission
+  // 1. IN-POPUP SIGN IN
   // ---------------------------------------------------------------------------
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -171,7 +297,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setLoginLoading(true);
 
     try {
-      // Step 1: Call login endpoint
       const loginRes = await fetch(`${serverUrl}/api/v1/auth/login`, {
         method: 'POST',
         headers: {
@@ -183,29 +308,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const loginData = await loginRes.json().catch(() => ({}));
 
-      if (!loginRes.ok || !loginData.success) {
+      if (!loginRes.ok || !loginData.token) {
         throw new Error(loginData.error || `Login failed (${loginRes.status})`);
       }
 
       const accessToken = loginData.token;
-      if (!accessToken) {
-        throw new Error('Authentication did not return a valid session token.');
-      }
-
-      // Step 2: Call extension pair endpoint with the acquired token
-      const pairRes = await fetch(`${serverUrl}/api/v1/extension/pair`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Accept': 'application/json',
-        },
-      });
-
-      const pairData = await pairRes.json().catch(() => ({}));
-      const extensionKey = pairData.token || accessToken;
-
-      // Step 3: Save to local storage
+      const extensionKey = await pairWithJwt(accessToken, serverUrl);
       const userEmail = loginData.user?.email || email;
+
       await chrome.storage.local.set({
         orfiloToken: extensionKey,
         orfiloUser: userEmail,
@@ -213,39 +323,142 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
 
       loginPassword.value = '';
-      const storage = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
-      showAppView(userEmail, storage);
+      const stats = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
+      showAppView(userEmail, stats);
+      showAlert('Signed in and paired successfully!', 'success');
     } catch (err) {
-      console.error('[Orfilo Popup] Login error:', err);
-      showAlert(err.message || 'Cannot reach Orfilo server', 'error');
+      console.error('[Orfilo Popup] Sign in error:', err);
+      showAlert(err.message || 'Unable to sign in. Please check credentials.', 'error');
     } finally {
       setLoginLoading(false);
     }
   });
 
   // ---------------------------------------------------------------------------
-  // Disconnect
+  // 2. IN-POPUP SIGN UP
   // ---------------------------------------------------------------------------
-  btnDisconnect.addEventListener('click', async () => {
-    try {
-      const storage = await chrome.storage.local.get(['orfiloToken', 'orfiloServerUrl']);
-      if (storage.orfiloToken && storage.orfiloServerUrl) {
-        // Notify server optionally
-        fetch(`${storage.orfiloServerUrl}/api/v1/connections/browser_extension/disconnect`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${storage.orfiloToken}` },
-        }).catch(() => {});
-      }
-    } catch (_) {}
+  signupForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAlert();
 
-    await chrome.storage.local.remove(['orfiloToken', 'orfiloUser']);
-    loginPassword.value = '';
-    showAuthView();
-    showAlert('Extension disconnected successfully.', 'success');
+    const name = signupName.value.trim();
+    const email = signupEmail.value.trim();
+    const password = signupPassword.value;
+    const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+
+    if (!email || !password) {
+      showAlert('Please provide an email and password.');
+      return;
+    }
+
+    if (password.length < 6) {
+      showAlert('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setSignUpLoading(true);
+
+    try {
+      const signupRes = await fetch(`${serverUrl}/api/v1/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name }),
+      });
+
+      const signupData = await signupRes.json().catch(() => ({}));
+
+      if (!signupRes.ok) {
+        throw new Error(signupData.error || `Sign up failed (${signupRes.status})`);
+      }
+
+      const accessToken = signupData.token || signupData.session?.access_token;
+
+      if (accessToken) {
+        // Direct auto-sign-in after signup
+        const extensionKey = await pairWithJwt(accessToken, serverUrl);
+        const userEmail = signupData.user?.email || email;
+
+        await chrome.storage.local.set({
+          orfiloToken: extensionKey,
+          orfiloUser: userEmail,
+          orfiloServerUrl: serverUrl,
+        });
+
+        signupPassword.value = '';
+        const stats = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
+        showAppView(userEmail, stats);
+        showAlert('Account created and paired successfully!', 'success');
+      } else {
+        // Confirmation email required
+        signupPassword.value = '';
+        switchAuthTab('signin');
+        loginEmail.value = email;
+        showAlert('Account created! Please check your email to confirm, then sign in.', 'success');
+      }
+    } catch (err) {
+      console.error('[Orfilo Popup] Sign up error:', err);
+      showAlert(err.message || 'Unable to create account. Please try again.', 'error');
+    } finally {
+      setSignUpLoading(false);
+    }
   });
 
   // ---------------------------------------------------------------------------
-  // Google Sign In / Sign Up
+  // 3. IN-POPUP TOKEN PAIRING
+  // ---------------------------------------------------------------------------
+  tokenPairForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAlert();
+
+    const token = pairingTokenInput.value.trim();
+    const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+
+    if (!token) {
+      showAlert('Please paste a pairing token or extension key.');
+      return;
+    }
+
+    setTokenLoading(true);
+
+    try {
+      const response = await fetch(`${serverUrl}/api/v1/extension/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data.authenticated) {
+        throw new Error(data.error || 'Invalid or revoked pairing token.');
+      }
+
+      const userEmail = data.user?.email || data.user_email || 'Authenticated User';
+      await chrome.storage.local.set({
+        orfiloToken: token,
+        orfiloUser: userEmail,
+        orfiloServerUrl: serverUrl,
+      });
+
+      pairingTokenInput.value = '';
+      const stats = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
+      showAppView(userEmail, stats);
+      showAlert('Extension successfully connected!', 'success');
+    } catch (err) {
+      console.error('[Orfilo Popup] Token pair error:', err);
+      showAlert(err.message || 'Verification failed. Please check token.', 'error');
+    } finally {
+      setTokenLoading(false);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // 4. GOOGLE AUTH (Browser fallback if desired)
   // ---------------------------------------------------------------------------
   if (btnGoogleAuth) {
     btnGoogleAuth.addEventListener('click', async () => {
@@ -257,65 +470,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ---------------------------------------------------------------------------
-  // Direct Token Pairing
+  // 5. DISCONNECT
   // ---------------------------------------------------------------------------
-  if (btnToggleTokenInput && tokenPairForm) {
-    btnToggleTokenInput.addEventListener('click', () => {
-      tokenPairForm.classList.toggle('hidden');
-      if (!tokenPairForm.classList.contains('hidden')) {
-        pairingTokenInput.focus();
+  btnDisconnect.addEventListener('click', async () => {
+    try {
+      const storage = await chrome.storage.local.get(['orfiloToken', 'orfiloServerUrl']);
+      if (storage.orfiloToken && storage.orfiloServerUrl) {
+        fetch(`${storage.orfiloServerUrl}/api/v1/connections/browser_extension/disconnect`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${storage.orfiloToken}` },
+        }).catch(() => {});
       }
-    });
-  }
+    } catch (_) {}
 
-  if (tokenPairForm) {
-    tokenPairForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      hideAlert();
-      const token = pairingTokenInput.value.trim();
-      const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
-
-      if (!token) {
-        showAlert('Please paste a pairing token.');
-        return;
-      }
-
-      try {
-        const response = await fetch(`${serverUrl}/api/v1/extension/status`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Accept': 'application/json',
-          },
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok || !data.authenticated) {
-          throw new Error(data.error || 'Invalid or revoked pairing token.');
-        }
-
-        const userEmail = data.user?.email || data.user_email || 'Authenticated User';
-        await chrome.storage.local.set({
-          orfiloToken: token,
-          orfiloUser: userEmail,
-          orfiloServerUrl: serverUrl,
-        });
-
-        pairingTokenInput.value = '';
-        tokenPairForm.classList.add('hidden');
-        const stats = await chrome.storage.local.get(['captureCount', 'lastCaptureTime']);
-        showAppView(userEmail, stats);
-        showAlert('Extension successfully paired!', 'success');
-      } catch (err) {
-        console.error('[Orfilo Popup] Token pair error:', err);
-        showAlert(err.message || 'Verification failed. Please check token.', 'error');
-      }
-    });
-  }
+    await chrome.storage.local.remove(['orfiloToken', 'orfiloUser']);
+    loginPassword.value = '';
+    signupPassword.value = '';
+    pairingTokenInput.value = '';
+    showAuthView();
+    switchAuthTab('signin');
+    showAlert('Extension disconnected successfully.', 'success');
+  });
 
   // ---------------------------------------------------------------------------
-  // Real-time Storage Listener (e.g. when paired via Google web app bridge)
+  // 6. REDIRECT ONLY FOR VIEWING FILES / FULL CONTROL ON DASHBOARD
+  // ---------------------------------------------------------------------------
+  btnOpenDashboard.addEventListener('click', (e) => {
+    e.preventDefault();
+    const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+    chrome.tabs.create({ url: `${serverUrl}/` });
+  });
+
+  // ---------------------------------------------------------------------------
+  // 7. REAL-TIME STORAGE LISTENER
   // ---------------------------------------------------------------------------
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && (changes.orfiloToken || changes.orfiloUser)) {
@@ -324,22 +511,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ---------------------------------------------------------------------------
-  // External Navigation Links
-  // ---------------------------------------------------------------------------
-  linkSignUp.addEventListener('click', (e) => {
-    e.preventDefault();
-    const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
-    chrome.tabs.create({ url: `${serverUrl}/` });
-  });
-
-  btnOpenDashboard.addEventListener('click', (e) => {
-    e.preventDefault();
-    const serverUrl = (serverUrlInput.value.trim() || DEFAULT_SERVER_URL).replace(/\/+$/, '');
-    chrome.tabs.create({ url: `${serverUrl}/` });
-  });
-
-  // ---------------------------------------------------------------------------
-  // Settings Panel Toggle & Save
+  // 8. SETTINGS PANEL
   // ---------------------------------------------------------------------------
   btnSettingsToggle.addEventListener('click', () => {
     settingsPanel.classList.toggle('hidden');
@@ -356,9 +528,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     await chrome.storage.local.set({ orfiloServerUrl: newUrl });
     settingsPanel.classList.add('hidden');
-    showAlert('Server URL updated. Verifying connection...', 'success');
-
-    // Retest connection
+    showAlert('Server URL saved. Checking connection...', 'info');
     await checkAuthStatus();
   });
 });

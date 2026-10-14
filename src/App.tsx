@@ -36,6 +36,7 @@ import { ProjectModal } from './components/ProjectModal.tsx';
 import { AuthModal } from './components/AuthModal.tsx';
 import { ActivityView } from './components/ActivityView.tsx';
 import { LandingPageView } from './components/LandingPageView.tsx';
+import { AuthPageView } from './components/AuthPageView.tsx';
 import { ExtensionPairModal } from './components/ExtensionPairModal.tsx';
 import { MobileBottomNav } from './components/MobileBottomNav.tsx';
 import { db } from './lib/supabase/db.ts';
@@ -68,7 +69,50 @@ export default function App() {
   const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'signin' | 'signup'>('signin');
+  const [authView, setAuthView] = useState<'signin' | 'signup' | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const path = window.location.pathname.toLowerCase();
+    const hash = window.location.hash.toLowerCase();
+    if (path === '/signin' || path === '/login' || hash === '#signin' || hash === '#login') return 'signin';
+    if (path === '/signup' || path === '/register' || hash === '#signup' || hash === '#register') return 'signup';
+    return null;
+  });
   const [isExtensionPairModalOpen, setIsExtensionPairModalOpen] = useState(false);
+
+  const navigateToAuth = (mode: 'signin' | 'signup') => {
+    setAuthView(mode);
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      window.history.pushState(null, '', `/${mode}`);
+    }
+  };
+
+  const navigateToHome = () => {
+    setAuthView(null);
+    if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+      window.history.pushState(null, '', '/');
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleLocationChange = () => {
+      const path = window.location.pathname.toLowerCase();
+      const hash = window.location.hash.toLowerCase();
+      if (path === '/signin' || path === '/login' || hash === '#signin' || hash === '#login') {
+        setAuthView('signin');
+      } else if (path === '/signup' || path === '/register' || hash === '#signup' || hash === '#register') {
+        setAuthView('signup');
+      } else if (path === '/' && (!hash || hash === '#')) {
+        setAuthView(null);
+      }
+    };
+    window.addEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
+  }, []);
 
   // 4. Drag & Drop & Toast
   const [draggingArtifact, setDraggingArtifact] = useState<Artifact | null>(null);
@@ -229,6 +273,7 @@ export default function App() {
     setArtifacts([]);
     setEvents([]);
     setActiveTab('home');
+    navigateToHome();
   };
 
   // 8. Deliverable & Project Handlers
@@ -470,19 +515,27 @@ export default function App() {
     );
   }
 
-  // Unauthenticated -> Landing Page
+  // Unauthenticated -> Dedicated Auth Page or Landing Page
   if (!user) {
+    if (authView) {
+      return (
+        <AuthPageView
+          initialMode={authView}
+          onAuthSuccess={async (authenticatedUser) => {
+            setUser(authenticatedUser);
+            navigateToHome();
+            await loadWorkspaceData();
+          }}
+          onBackToHome={navigateToHome}
+        />
+      );
+    }
+
     return (
       <>
         <LandingPageView
-          onSignIn={() => {
-            setAuthModalMode('signin');
-            setIsAuthModalOpen(true);
-          }}
-          onSignUp={() => {
-            setAuthModalMode('signup');
-            setIsAuthModalOpen(true);
-          }}
+          onSignIn={() => navigateToAuth('signin')}
+          onSignUp={() => navigateToAuth('signup')}
         />
         <AuthModal
           isOpen={isAuthModalOpen}

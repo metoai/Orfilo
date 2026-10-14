@@ -46,8 +46,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (!isConfigured || !client) {
       const mockUser: UserType = {
         id: 'usr_' + Math.random().toString(36).substring(2, 9),
-        email: email || 'metoaipr@gmail.com',
-        name: fullName || (email ? email.split('@')[0] : 'Orfilo User'),
+        email: email || 'user@example.com',
+        name: fullName || (email ? email.split('@')[0] : 'User'),
         avatar_url: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -117,54 +117,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleQuickSignIn = async () => {
-    setMode('signin');
-    setEmail('metoaipr@gmail.com');
-    setPassword('Orfilo2026!Secure');
-    setErrorMsg(null);
-    setSuccessNotice(null);
-    setIsLoading(true);
-
-    const client = createBrowserClient();
-    if (!isConfigured || !client) {
-      setTimeout(() => {
-        setIsLoading(false);
-        onAuthSuccess({
-          id: 'usr_meto_preview',
-          email: 'metoaipr@gmail.com',
-          name: 'Meto User',
-          avatar_url: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-        onClose();
-      }, 300);
-      return;
-    }
-
-    try {
-      const { data, error } = await client.auth.signInWithPassword({
-        email: 'metoaipr@gmail.com',
-        password: 'Orfilo2026!Secure',
-      });
-      if (error) throw error;
-      if (data.user) {
-        onAuthSuccess({
-          id: data.user.id,
-          email: data.user.email || 'metoaipr@gmail.com',
-          name: data.user.user_metadata?.full_name || 'Meto User',
-          created_at: data.user.created_at,
-          updated_at: new Date().toISOString(),
-        });
-        onClose();
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Quick sign in failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleGoogleOAuth = async () => {
     setErrorMsg(null);
     setIsLoading(true);
@@ -173,9 +125,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setTimeout(() => {
         setIsLoading(false);
         onAuthSuccess({
-          id: 'usr_meto_preview',
-          email: 'metoaipr@gmail.com',
-          name: 'Meto User',
+          id: 'usr_oauth_demo',
+          email: 'demo@example.com',
+          name: 'Demo User',
           avatar_url: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -393,19 +345,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               )}
             </button>
           </form>
-
-          {/* Quick-fill one-click button */}
-          <div className="pt-1 border-t border-neutral-100">
-            <button
-              type="button"
-              onClick={handleQuickSignIn}
-              disabled={isLoading}
-              className="w-full py-2 px-3 bg-emerald-50/60 hover:bg-emerald-50 text-emerald-700 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200/60 disabled:opacity-50"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>One-click test sign in (metoaipr@gmail.com)</span>
-            </button>
-          </div>
         </div>
 
         {/* Footer */}
