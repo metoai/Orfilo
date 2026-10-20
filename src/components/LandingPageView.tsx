@@ -1,34 +1,35 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowRight,
-  Zap,
-  Check,
   Search,
-  Folder,
-  FolderOpen,
-  ShieldCheck,
+  Mic,
+  X,
   Sparkles,
-  Copy,
+  BarChart3,
+  Users2,
+  Hourglass,
   CheckCircle2,
-  ChevronDown,
-  Layers,
-  Puzzle,
-  Lock,
-  Terminal,
-  FileCode,
-  FileImage,
-  Code2,
-  Clock,
-  Database,
-  ExternalLink,
-  Bot,
-  Cpu,
+  Globe2,
   TrendingUp,
-  Sliders,
-  CheckCheck,
+  Image as ImageIcon,
+  Video,
+  ShoppingBag,
+  MapPin,
+  ExternalLink,
+  ChevronDown,
+  ShieldCheck,
+  Check,
+  Filter,
+  DollarSign,
+  Clock,
+  Award,
+  Zap,
 } from 'lucide-react';
-import { OrfiloBrand, OrfiloIcon } from './OrfiloBrand.tsx';
+import { DIRECTORIES_DATA, Directory } from '../data/directories';
+import { PRICING_TIERS, GUARANTEE_POINTS, PricingTier } from '../data/pricing';
+import { FOUNDER_TESTIMONIALS, SOCIAL_PROOF_METRICS } from '../data/testimonials';
+import { FAQ_ITEMS } from '../data/faqs';
 
 interface LandingPageViewProps {
   onSignIn: () => void;
@@ -37,108 +38,89 @@ interface LandingPageViewProps {
   onReturnToDashboard?: () => void;
 }
 
-const FAQ_ITEMS = [
-  {
-    question: 'How does the Orfilo Chrome Extension capture deliverables?',
-    answer:
-      'The companion extension embeds a persistent, non-intrusive "Save to Orfilo" button on code blocks, images, and document chips in ChatGPT, Claude, Gemini, and Cursor. It captures the generated payload alongside prompt context and routes it securely into your workspace without manual downloading.',
-  },
-  {
-    question: 'How does Orfilo generate clean names instead of random hashes?',
-    answer:
-      'Instead of saving arbitrary filenames like "image_892348_final.png", Orfilo parses the prompt semantics with Gemini 2.5 Flash. The engine identifies the core subject and context, creating clean, standardized kebab-case names like "habesha-hero-character-3d.png".',
-  },
-  {
-    question: 'Does Orfilo support deep project subfolders?',
-    answer:
-      'Yes. Every project supports unlimited subfolders (e.g. "Habesha Model / Marketing / 3D Renders"). You can drag and drop artifacts between subfolders, rename paths in real time, and filter assets with live item counters.',
-  },
-  {
-    question: 'Is my data secure and isolated?',
-    answer:
-      'Completely. Orfilo is built on Supabase with PostgreSQL Row-Level Security (RLS) enforced on every table. Every query is strictly authenticated via your JWT or cryptographically hashed extension token. No other user can ever access your deliverables.',
-  },
-  {
-    question: 'Can I use Orfilo without the Chrome Extension?',
-    answer:
-      'Yes. You can manually drag and drop or upload files, paste code snippets directly, and organize assets via the web dashboard. The Chrome extension simply automates the capture step directly from your active AI conversation tabs.',
-  },
-];
+/**
+ * Launchdir Rocket Icon
+ * Exact aerodynamic lozenge rocket geometry from the reference screenshot
+ */
+export const LaunchdirRocketIcon: React.FC<{ className?: string }> = ({ className = 'size-6' }) => (
+  <svg
+    viewBox="0 0 48 48"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <path
+      d="M29.5 8.5C24.8 13.2 21.2 20.4 19.5 25.5L22.5 28.5C27.6 26.8 34.8 23.2 39.5 18.5C41.2 16.8 41.5 13.9 40 12C38.5 10.1 35.6 9.8 33.5 10.5L29.5 8.5Z"
+      stroke="currentColor"
+      strokeWidth="3.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M17 28L11 34C9.5 35.5 9.5 38 11 39.5C12.5 41 15 41 16.5 39.5L22.5 33.5"
+      stroke="currentColor"
+      strokeWidth="3.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M15 23.5L12 21C10.5 19.5 11 17 13 16.5L18 16"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M24.5 33L27 36C28.5 37.5 31 37 31.5 35L32 30"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="29" cy="19" r="2.5" fill="currentColor" />
+  </svg>
+);
 
-// Interactive Prompt Simulation Data
-const PLAYGROUND_PROMPTS = [
-  {
-    id: 'render',
-    title: '3D Character Render',
-    platform: 'Gemini 2.5 Flash',
-    prompt:
-      'Generate a photorealistic 3D Habesha character wearing traditional woven clothing with golden embroidery standing against a warm minimal studio background.',
-    targetFile: 'habesha-hero-character-3d.png',
-    project: 'Habesha Model',
-    subfolder: 'Marketing / 3D Renders',
-    mime: 'image/png',
-    size: '2.4 MB',
-    type: 'image',
-  },
-  {
-    id: 'code',
-    title: 'Next.js Auth Hook',
-    platform: 'Claude 3.7 Sonnet',
-    prompt:
-      'Write a production-ready useSession hook in TypeScript with automatic token refresh, SWR revalidation, and strict Supabase session validation.',
-    targetFile: 'use-session-auth.ts',
-    project: 'SaaS Platform',
-    subfolder: 'Frontend / Hooks',
-    mime: 'text/typescript',
-    size: '14.2 KB',
-    type: 'code',
-  },
-  {
-    id: 'doc',
-    title: 'Brand Pitch Deck',
-    platform: 'ChatGPT 4o',
-    prompt:
-      'Create an executive 10-slide startup pitch deck outline for an enterprise AI deliverable organizer targeting seed investors.',
-    targetFile: 'executive-pitch-deck-outline.docx',
-    project: 'Fundraising 2026',
-    subfolder: 'Investor Relations',
-    mime: 'application/docx',
-    size: '88.5 KB',
-    type: 'doc',
-  },
-  {
-    id: 'schema',
-    title: 'Drizzle Schema Migration',
-    platform: 'Cursor AI',
-    prompt:
-      'Generate a safe Drizzle ORM migration adding a jsonb metadata column to the integration_connections table with backward-compatible defaults.',
-    targetFile: '0024-add-connection-metadata.sql',
-    project: 'Infrastructure Core',
-    subfolder: 'Database / Migrations',
-    mime: 'application/sql',
-    size: '4.8 KB',
-    type: 'code',
-  },
-];
+interface DirectoryTile {
+  id: string;
+  name: string;
+  glyph: string;
+  opacity: string;
+  isSpecial?: boolean;
+}
 
-// AI Platform Grid Icons for Hero Visual
-const AI_TOOL_TILES = [
-  { name: 'ChatGPT', label: 'GPT', color: '#10A37F' },
-  { name: 'Claude', label: 'Anthropic', color: '#D97706' },
-  { name: 'Gemini', label: 'Google', color: '#4285F4' },
-  { name: 'Cursor', label: 'IDE', color: '#000000' },
-  { name: 'Midjourney', label: 'MJ', color: '#6366F1' },
-  { name: 'v0 by Vercel', label: 'v0', color: '#000000' },
-  { name: 'Bolt.new', label: 'Bolt', color: '#E11D48' },
-  { name: 'Lovable', label: 'Lovable', color: '#EC4899' },
-  { name: 'Perplexity', label: 'PPLX', color: '#0EA5E9' },
-  { name: 'Copilot', label: 'GitHub', color: '#24292F' },
-  { name: 'Replit', label: 'Replit', color: '#F97316' },
-  { name: 'Figma AI', label: 'Figma', color: '#A855F7' },
-  { name: 'DALL-E 3', label: 'DALL-E', color: '#14B8A6' },
-  { name: 'Google Docs', label: 'Docs', color: '#2563EB' },
-  { name: 'Notion AI', label: 'Notion', color: '#000000' },
-  { name: 'Suno AI', label: 'Suno', color: '#84CC16' },
+const DIRECTORY_TILES: DirectoryTile[] = [
+  // Row 1
+  { id: '1-1', name: 'Product Hunt', glyph: 'P', opacity: 'opacity-40' },
+  { id: '1-2', name: 'AppSumo', glyph: '≡', opacity: 'opacity-40' },
+  { id: '1-3', name: 'G2', glyph: 'G2', opacity: 'opacity-30' },
+  { id: '1-4', name: 'BetaList', glyph: 'B', opacity: 'opacity-25' },
+  { id: '1-5', name: 'AlternativeTo', glyph: 'A', opacity: 'opacity-20' },
+  // Row 2
+  { id: '2-1', name: 'Trustpilot', glyph: '★', opacity: 'opacity-45' },
+  { id: '2-2', name: 'Reddit', glyph: '●', opacity: 'opacity-65' },
+  { id: '2-3', name: 'Product Hunt', glyph: 'P', opacity: 'opacity-70' },
+  { id: '2-4', name: 'Capterra', glyph: 'C', opacity: 'opacity-60' },
+  { id: '2-5', name: 'SoftwareAdvice', glyph: 'S', opacity: 'opacity-35' },
+  // Row 3
+  { id: '3-1', name: 'Telegram', glyph: '✈', opacity: 'opacity-55' },
+  { id: '3-2', name: 'Product Hunt', glyph: 'P', opacity: 'opacity-75' },
+  { id: '3-3', name: 'LAUNCHDIR_CENTER', glyph: 'ROCKET', opacity: 'opacity-100', isSpecial: true },
+  { id: '3-4', name: 'Indie Hackers', glyph: 'IH', opacity: 'opacity-75' },
+  { id: '3-5', name: 'Next30', glyph: 'Next', opacity: 'opacity-55' },
+  // Row 4
+  { id: '4-1', name: 'Crunchbase', glyph: 'C', opacity: 'opacity-50' },
+  { id: '4-2', name: 'BetaPage', glyph: 'BetaPage', opacity: 'opacity-65' },
+  { id: '4-3', name: 'StartupBase', glyph: 'SP', opacity: 'opacity-70' },
+  { id: '4-4', name: 'Reddit', glyph: '●', opacity: 'opacity-65' },
+  { id: '4-5', name: 'Product Hunt', glyph: 'P', opacity: 'opacity-45' },
+  // Row 5
+  { id: '5-1', name: 'F6S', glyph: 'F', opacity: 'opacity-25' },
+  { id: '5-2', name: 'PitchBook', glyph: 'PB', opacity: 'opacity-30' },
+  { id: '5-3', name: 'StartupBase', glyph: 'SB', opacity: 'opacity-55' },
+  { id: '5-4', name: 'Product Hunt', glyph: '◉', opacity: 'opacity-40' },
+  { id: '5-5', name: 'TechCrunch', glyph: 'TC', opacity: 'opacity-20' },
 ];
 
 export const LandingPageView: React.FC<LandingPageViewProps> = ({
@@ -147,746 +129,974 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
   isLoggedIn = false,
   onReturnToDashboard,
 }) => {
-  const [copiedCommand, setCopiedCommand] = useState<boolean>(false);
+  // Mockup card active tab state
+  const [googleTab, setGoogleTab] = useState<'Tous' | 'Images' | 'Video' | 'Shopping' | 'Maps'>('Tous');
+  const [hoveredTooltip, setHoveredTooltip] = useState<'moderate' | 'high' | null>(null);
+
+  // Directory explorer state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [minDr, setMinDr] = useState<number>(0);
+  const [dofollowOnly, setDofollowOnly] = useState<boolean>(false);
+
+  // ROI Calculator state
+  const [hourlyRate, setHourlyRate] = useState<number>(75);
+  const [selectedDirsCount, setSelectedDirsCount] = useState<number>(90);
+
+  // FAQ state
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
-  const [activePlaygroundIndex, setActivePlaygroundIndex] = useState<number>(0);
 
-  const activePlayground = PLAYGROUND_PROMPTS[activePlaygroundIndex];
-
-  const handleCopyCommand = (cmd: string) => {
-    navigator.clipboard.writeText(cmd);
-    setCopiedCommand(true);
-    setTimeout(() => setCopiedCommand(false), 2000);
+  // Primary Action Handler
+  const handlePrimaryCta = () => {
+    if (isLoggedIn && onReturnToDashboard) {
+      onReturnToDashboard();
+    } else {
+      onSignUp();
+    }
   };
 
+  // Filtered directories calculation
+  const filteredDirectories = useMemo(() => {
+    return DIRECTORIES_DATA.filter((dir) => {
+      const matchesSearch =
+        dir.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        dir.categories.some((c) => c.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesCategory =
+        selectedCategory === 'All' || dir.categories.includes(selectedCategory as any);
+      const matchesDr = dir.domainRating >= minDr;
+      const matchesDoFollow = !dofollowOnly || dir.backlinkType === 'Do-Follow';
+      return matchesSearch && matchesCategory && matchesDr && matchesDoFollow;
+    });
+  }, [searchTerm, selectedCategory, minDr, dofollowOnly]);
+
+  // ROI Math: 35 mins per manual submission
+  const hoursSpent = Math.round((selectedDirsCount * 35) / 60);
+  const manualLaborCost = hoursSpent * hourlyRate;
+  const launchdirCost = selectedDirsCount <= 40 ? 49 : selectedDirsCount <= 90 ? 99 : 199;
+  const netSavings = Math.max(0, manualLaborCost - launchdirCost);
+
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-neutral-900 flex flex-col antialiased selection:bg-[#E8F7F0] selection:text-[#19A974] relative overflow-x-hidden font-sans">
-      {/* Ambient Radial Aura Illumination (Orfilo Emerald glow) */}
+    <div className="relative min-h-screen w-full bg-[#FF5A26] p-3 sm:p-5 md:p-8 lg:p-12 font-sans selection:bg-[#FF5A26]/20 selection:text-[#FF5A26] flex items-center justify-center">
+      {/* Radiant Orange Outer Ambient Lighting */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[650px] pointer-events-none -z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_0%,rgba(25,169,116,0.14),rgba(250,249,246,0))]"
+        className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 size-[700px] rounded-full bg-gradient-to-b from-[#FFA066]/35 to-transparent blur-[130px]"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 right-10 size-[550px] rounded-full bg-gradient-to-t from-[#FF7A42]/30 to-transparent blur-[110px]"
         aria-hidden="true"
       />
 
-      {/* ================================================================= */}
-      {/* 1. TOP NAVIGATION BAR (CLEAN, MINIMAL, MATCHING REFERENCE)        */}
-      {/* ================================================================= */}
-      <header className="px-6 md:px-12 py-4 border-b border-neutral-200/70 bg-[#FAF9F6]/85 backdrop-blur-md sticky top-0 z-40 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <OrfiloBrand variant="horizontal" size="md" showTagline={false} />
-          <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200/60 hidden sm:inline-block">
-            v2.0
-          </span>
-        </div>
+      {/* Main Luxury Frame (Direct Match to Reference Screenshot) */}
+      <main className="relative w-full max-w-6xl rounded-[32px] bg-[#FAF8F5] border border-white/60 shadow-[0_30px_90px_-20px_rgba(180,45,10,0.38),0_0_0_1px_rgba(255,255,255,0.7)_inset] overflow-hidden">
+        {/* Subtle Ambient Mesh Inside Canvas */}
+        <div
+          className="pointer-events-none absolute top-40 right-10 size-[550px] rounded-full bg-[radial-gradient(circle,_rgba(255,90,38,0.18)_0%,_rgba(255,160,100,0.08)_40%,_transparent_70%)] blur-[75px]"
+          aria-hidden="true"
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[600px] bg-[radial-gradient(ellipse_at_bottom,_rgba(255,90,38,0.30)_0%,_rgba(255,140,80,0.12)_40%,_transparent_75%)]"
+          aria-hidden="true"
+        />
 
-        {/* Center Nav Links */}
-        <nav className="hidden md:flex items-center gap-7 text-xs font-medium text-neutral-600">
-          <a href="#how-it-works" className="hover:text-neutral-950 transition-colors">
-            How it works
+        {/* =============================================================== */}
+        {/* 1. HEADER NAVIGATION (PIXEL-PERFECT MATCH TO REFERENCE)          */}
+        {/* =============================================================== */}
+        <header className="relative z-20 flex items-center justify-between px-6 sm:px-10 lg:px-14 py-6">
+          <a
+            href="#home"
+            className="group flex items-center gap-2.5 transition-transform duration-150 active:scale-[0.97]"
+          >
+            <div className="flex size-8 items-center justify-center text-[#FF5A26] transition-transform duration-200 group-hover:rotate-6">
+              <LaunchdirRocketIcon className="size-7" />
+            </div>
+            <span className="text-[19px] font-bold tracking-tight text-[#171717]">
+              launchdir
+            </span>
           </a>
-          <a href="#features" className="hover:text-neutral-950 transition-colors">
-            Features
-          </a>
-          <a href="#playground" className="hover:text-neutral-950 transition-colors">
-            Interactive Demo
-          </a>
-          <a href="#faq" className="hover:text-neutral-950 transition-colors">
-            FAQ
-          </a>
-        </nav>
 
-        {/* Right Action Buttons */}
-        <div className="flex items-center gap-3">
-          {isLoggedIn ? (
-            <button
-              onClick={onReturnToDashboard}
-              className="px-4 py-2 bg-[#19A974] hover:bg-[#158f62] text-white rounded-full text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
+          <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-[13.5px] font-medium text-[#4D4D4D]">
+            <a
+              href="#how-it-works"
+              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
             >
-              <span>Workspace</span>
-              <ArrowRight className="size-3.5" />
-            </button>
-          ) : (
-            <>
+              How it works
+            </a>
+            <a
+              href="#directories"
+              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
+            >
+              Directories
+            </a>
+            <a
+              href="#pricing"
+              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
+            >
+              Pricing
+            </a>
+            <a
+              href="#faq"
+              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
+            >
+              FAQ
+            </a>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {isLoggedIn ? (
               <button
-                onClick={onSignIn}
-                className="text-xs font-medium text-neutral-700 hover:text-neutral-950 px-2 py-1 transition-colors cursor-pointer"
+                type="button"
+                onClick={onReturnToDashboard}
+                className="inline-flex items-center gap-2 rounded-full bg-[#121212] px-5 py-2.5 text-[13.5px] font-medium text-white shadow-[0_2px_10px_rgba(0,0,0,0.14)] transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-black hover:shadow-[0_4px_16px_rgba(0,0,0,0.22)] active:scale-[0.97]"
               >
-                Sign in
+                <span>Dashboard</span>
+                <ArrowRight className="size-3.5 stroke-[2.2]" />
               </button>
-              <button
-                onClick={onSignUp}
-                className="px-4 py-2 bg-neutral-900 hover:bg-neutral-800 text-white rounded-full text-xs font-semibold shadow-2xs transition-all active:scale-[0.98] cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Get started</span>
-                <ArrowRight className="size-3.5 text-neutral-400" />
-              </button>
-            </>
-          )}
-        </div>
-      </header>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={onSignIn}
+                  className="hidden sm:inline-block text-[13px] font-medium text-[#4D4D4D] hover:text-black px-2 py-1 transition-colors"
+                >
+                  Sign in
+                </button>
+                <button
+                  type="button"
+                  onClick={onSignUp}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#121212] px-5 py-2.5 text-[13.5px] font-medium text-white shadow-[0_2px_10px_rgba(0,0,0,0.14)] transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-black hover:shadow-[0_4px_16px_rgba(0,0,0,0.22)] active:scale-[0.97]"
+                >
+                  <span>Get started</span>
+                  <ArrowRight className="size-3.5 stroke-[2.2]" />
+                </button>
+              </>
+            )}
+          </div>
+        </header>
 
-      {/* ================================================================= */}
-      {/* 2. HERO SECTION (SPLIT ASYMMETRIC 2-COLUMN MATCHING REFERENCE)   */}
-      {/* ================================================================= */}
-      <section className="max-w-6xl mx-auto px-6 pt-16 md:pt-24 pb-20 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          {/* Left Column: Copy, Headlines & Actions */}
-          <div className="lg:col-span-7 flex flex-col items-start text-left">
-            {/* Social Proof Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium text-neutral-700 bg-white border border-neutral-200/80 shadow-2xs mb-5"
-            >
-              <span className="text-[#19A974] font-bold">✦</span>
-              <span className="font-semibold text-neutral-900">14,200+</span>
-              <span className="text-neutral-600">AI deliverables successfully organized</span>
-            </motion.div>
+        {/* =============================================================== */}
+        {/* 2. HERO SECTION (EXACT ASYMMETRIC GRID & FLOATING ROCKET TILE)  */}
+        {/* =============================================================== */}
+        <section
+          id="home"
+          className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center px-6 sm:px-10 lg:px-14 pt-6 pb-20"
+        >
+          {/* Left Column: Headlines & CTA */}
+          <div className="lg:col-span-6 xl:col-span-7 flex flex-col items-start gap-7 max-w-xl">
+            <div className="inline-flex items-center gap-2 text-[13px] font-medium text-[#6B6B6B]">
+              <Sparkles className="size-3.5 text-[#FF5A26] fill-[#FF5A26]" />
+              <span>256 Startups successfully boosted</span>
+            </div>
 
-            {/* Sub-heading kicker */}
-            <motion.p
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.05, ease: [0.23, 1, 0.32, 1] }}
-              className="text-sm md:text-base font-semibold text-neutral-600 mb-1"
-            >
-              Capture once and
-            </motion.p>
+            <div className="flex flex-col gap-1 tracking-tight">
+              <h2 className="text-2xl sm:text-3xl lg:text-[34px] font-medium text-[#1A1A1A] tracking-[-0.02em]">
+                Submit once and
+              </h2>
+              <h1 className="text-4xl sm:text-5xl lg:text-[58px] font-bold text-[#121212] tracking-[-0.035em] leading-[1.08]">
+                List your startup <br />
+                <span className="text-[#FF5A26]">everywhere</span>
+              </h1>
+            </div>
 
-            {/* Massive Bold Headline matching Reference layout */}
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1, ease: [0.23, 1, 0.32, 1] }}
-              className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-neutral-950 leading-[1.08]"
-            >
-              List your deliverables{' '}
-              <span className="text-[#19A974] block">everywhere</span>
-            </motion.h1>
-
-            {/* Value Props Row (Horizontal bullet pills matching reference) */}
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.18, ease: [0.23, 1, 0.32, 1] }}
-              className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-neutral-700"
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#19A974]" />
-                <span>Instant AI capture</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#19A974]" />
-                <span>Auto-naming & folders</span>
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-[#19A974]" />
-                <span>Save 10+ hrs/wk</span>
-              </span>
-            </motion.div>
-
-            {/* Primary Action Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.25, ease: [0.23, 1, 0.32, 1] }}
-              className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto"
-            >
-              <button
-                onClick={onSignUp}
-                className="px-6 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-full text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 group"
-              >
-                <span>Start organizing on 10+ platforms</span>
-                <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-              </button>
-
-              {/* Quick CLI command copy */}
-              <div
-                onClick={() => handleCopyCommand('npx orfilo pair')}
-                className="flex items-center justify-between gap-2 px-4 py-3 rounded-full border border-neutral-200/90 bg-white hover:bg-neutral-50 text-xs font-mono text-neutral-700 transition-colors cursor-pointer"
-                title="Copy pairing command"
-              >
-                <span className="text-neutral-400 select-none">$</span>
-                <span className="font-semibold text-neutral-800">npx orfilo pair</span>
-                {copiedCommand ? (
-                  <CheckCircle2 className="size-3.5 text-emerald-600 ml-1" />
-                ) : (
-                  <Copy className="size-3.5 text-neutral-400 ml-1" />
-                )}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-3 pt-1 text-[13px] font-medium text-[#4D4D4D]">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="size-4 text-[#FF5A26] stroke-[2.2]" />
+                <span>Instant SEO boost</span>
               </div>
-            </motion.div>
+              <div className="flex items-center gap-2">
+                <Users2 className="size-4 text-[#FF5A26] stroke-[2.2]" />
+                <span>Increase your audience</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Hourglass className="size-4 text-[#FF5A26] stroke-[2.2]" />
+                <span>Save time</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePrimaryCta}
+              className="inline-flex items-center gap-2.5 rounded-full bg-[#121212] px-7 py-3.5 text-[14.5px] font-medium text-white shadow-[0_4px_18px_rgba(0,0,0,0.18)] transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-black hover:shadow-[0_6px_22px_rgba(0,0,0,0.26)] active:scale-[0.97] cursor-pointer"
+            >
+              <span>Get listed on 100+ directories</span>
+              <ArrowRight className="size-4 stroke-[2.2]" />
+            </button>
           </div>
 
-          {/* Right Column: 4x4 Grid of Tool Tiles with Floating Center Logo (Direct match to reference image) */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6, delay: 0.15, ease: [0.23, 1, 0.32, 1] }}
-            className="lg:col-span-5 relative flex items-center justify-center"
-          >
-            {/* Luminous emerald aura behind the grid */}
+          {/* Right Column: 5x5 Icon Matrix with Floating Center Tile */}
+          <div className="lg:col-span-6 xl:col-span-5 relative flex items-center justify-center">
+            {/* Soft Radiant Orange Aura */}
             <div
-              className="absolute size-72 rounded-full bg-[radial-gradient(circle,rgba(25,169,116,0.22),transparent_70%)] pointer-events-none -z-0 blur-xl"
+              className="pointer-events-none absolute size-80 sm:size-96 rounded-full bg-gradient-to-tr from-[#FF5A26]/40 via-[#FF8F52]/25 to-transparent blur-[65px]"
               aria-hidden="true"
             />
 
-            {/* The 4x4 Grid Container */}
-            <div className="relative p-6 rounded-3xl bg-white/60 border border-neutral-200/80 shadow-md backdrop-blur-md">
-              <div className="grid grid-cols-4 gap-3">
-                {AI_TOOL_TILES.map((tile, i) => (
+            <div className="relative grid grid-cols-5 gap-3 sm:gap-3.5 p-4 rounded-3xl">
+              {DIRECTORY_TILES.map((tile) => {
+                if (tile.isSpecial) {
+                  return (
+                    <div
+                      key={tile.id}
+                      className="relative size-12 sm:size-14 flex items-center justify-center"
+                    >
+                      <div
+                        onClick={handlePrimaryCta}
+                        className="absolute z-20 size-20 sm:size-24 rounded-[22px] bg-white border border-white/80 shadow-[0_20px_45px_-8px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.04)] flex items-center justify-center text-[#FF5A26] transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:-translate-y-1.5 hover:shadow-[0_25px_50px_-6px_rgba(255,90,38,0.24)] cursor-pointer"
+                      >
+                        <LaunchdirRocketIcon className="size-11 sm:size-13" />
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
                   <div
-                    key={tile.name}
-                    className="size-16 sm:size-18 rounded-2xl bg-white border border-neutral-200/70 shadow-2xs flex flex-col items-center justify-center p-2 transition-transform hover:scale-105 select-none"
+                    key={tile.id}
+                    title={tile.name}
+                    className={`size-12 sm:size-14 rounded-2xl bg-[#ECE7E1]/80 backdrop-blur-xs border border-white/60 flex items-center justify-center text-[#2A2A2A] font-bold text-xs sm:text-sm select-none transition-all duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-white hover:scale-105 hover:shadow-sm ${tile.opacity}`}
                   >
-                    <span
-                      className="size-2 rounded-full mb-1.5 opacity-80"
-                      style={{ backgroundColor: tile.color }}
-                    />
-                    <span className="text-[11px] font-semibold text-neutral-800 truncate max-w-[54px]">
-                      {tile.name}
-                    </span>
-                    <span className="text-[9px] font-mono text-neutral-400">{tile.label}</span>
+                    {tile.glyph === 'BetaPage' ? (
+                      <span className="text-[9px] font-semibold tracking-tighter">
+                        BetaPage
+                      </span>
+                    ) : tile.glyph === 'Next' ? (
+                      <span className="text-[10px] font-semibold tracking-tighter">
+                        Next
+                      </span>
+                    ) : (
+                      <span>{tile.glyph}</span>
+                    )}
                   </div>
-                ))}
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 3. BENTO 1: BOOST ONLINE PRESENCE (GOOGLE SEARCH RESULT CARD)     */}
+        {/* =============================================================== */}
+        <section className="relative z-10 px-6 sm:px-10 lg:px-14 pb-10">
+          <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center rounded-[28px] bg-white/95 border border-[#ECE7E1] shadow-[0_10px_35px_-10px_rgba(0,0,0,0.04)] p-8 sm:p-12 overflow-hidden">
+            <div
+              className="pointer-events-none absolute -bottom-20 -right-20 size-80 rounded-full bg-gradient-to-tl from-[#FF5A26]/20 via-[#FFB085]/15 to-transparent blur-[70px]"
+              aria-hidden="true"
+            />
+
+            {/* Left Copy Column */}
+            <div className="lg:col-span-6 flex flex-col gap-6">
+              <div className="flex flex-col gap-1 tracking-tight">
+                <h3 className="text-3xl sm:text-4xl font-bold text-[#141414] tracking-[-0.03em] leading-[1.12]">
+                  Boost your <br />
+                  Online Presence
+                </h3>
               </div>
 
-              {/* Elevated Floating Center Card with Orfilo Icon (Exact match to reference center rocket) */}
-              <motion.div
-                animate={{ y: [0, -6, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: 'easeInOut' }}
-                className="absolute inset-0 m-auto size-24 sm:size-26 rounded-3xl bg-white border border-[#19A974]/30 shadow-2xl shadow-emerald-500/25 flex flex-col items-center justify-center z-10"
-              >
-                <div className="size-12 rounded-2xl bg-[#E8F7F0] flex items-center justify-center text-[#19A974] shadow-2xs">
-                  <OrfiloIcon size={32} />
-                </div>
-                <span className="text-[10px] font-bold text-neutral-900 mt-1">Orfilo</span>
-              </motion.div>
-            </div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 3. SECTION 2: ASYMMETRIC CARD 1 (BOOST YOUR AI PRESENCE)          */}
-      {/* ================================================================= */}
-      <section id="features" className="max-w-6xl mx-auto px-6 py-8 w-full">
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-8 sm:p-12 shadow-sm relative overflow-hidden">
-          {/* Ambient emerald illumination in bottom right */}
-          <div
-            className="absolute -right-16 -bottom-16 size-96 bg-[radial-gradient(circle,rgba(25,169,116,0.18),transparent_70%)] pointer-events-none -z-0"
-            aria-hidden="true"
-          />
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
-            {/* Left Column: Heading, Subtitle & Checklist */}
-            <div className="lg:col-span-6 flex flex-col items-start text-left">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-neutral-950 leading-[1.12]">
-                Boost your
-                <span className="block text-neutral-900">AI Productivity</span>
-              </h2>
-
-              <p className="mt-4 text-sm text-neutral-500 leading-relaxed max-w-lg">
-                Make it easy for your team to find every asset. We automatically capture, rename, and
-                organize your deliverables from trusted AI platforms where you are already creating.
+              <p className="text-[14px] sm:text-[14.5px] text-[#636363] leading-relaxed max-w-md">
+                Make it easy for your audience to find you. We&apos;ll list your
+                startup on trusted directories and platforms where your
+                customers are already searching.
               </p>
 
-              <div className="mt-8 flex flex-col gap-3.5 w-full">
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
+              <div className="flex flex-col gap-3.5 pt-2">
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <CheckCircle2 className="size-4 stroke-[2.2]" />
                   </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    Be organized where it matters most across ChatGPT, Claude, and Gemini
-                  </span>
+                  <span>Be visible where it matters most</span>
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <TrendingUp className="size-4 stroke-[2.2]" />
                   </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    Reach target deliverables effortlessly with smart kebab-case naming
-                  </span>
+                  <span>Reach your target audience effortlessly</span>
                 </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <Globe2 className="size-4 stroke-[2.2]" />
                   </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    Expand your project organization with automated subfolder routing
-                  </span>
+                  <span>Expand your online presence across trusted platforms</span>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Search & Deliverable Inspection Card (Matching Search card in Reference) */}
-            <div className="lg:col-span-6">
-              <div className="rounded-2xl border border-neutral-200/90 bg-[#FAF9F6] p-5 shadow-sm flex flex-col gap-4">
-                {/* Search Bar Input Container */}
-                <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-neutral-200/80 rounded-xl shadow-2xs">
-                  <Search className="size-4 text-neutral-400" />
-                  <span className="text-xs text-neutral-800 font-medium flex-1">
-                    habesha hero character 3d
-                  </span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 bg-neutral-100 text-neutral-500 rounded">
-                    ⌘K
-                  </span>
-                </div>
+            {/* Right Mockup Column (Google Card) */}
+            <div className="lg:col-span-6 relative flex items-center justify-center">
+              <div
+                className="pointer-events-none absolute size-72 rounded-full bg-gradient-to-br from-[#FF9860]/25 via-[#FFA873]/15 to-transparent blur-[60px]"
+                aria-hidden="true"
+              />
 
-                {/* Filter Pills */}
-                <div className="flex items-center gap-2 text-[11px] font-medium text-neutral-500 border-b border-neutral-200/60 pb-2">
-                  <span className="px-2.5 py-1 rounded-lg bg-neutral-900 text-white font-semibold">
-                    All Files
+              <div className="relative w-full max-w-md rounded-2xl bg-white border border-[#E8E3DD] shadow-[0_16px_36px_-8px_rgba(0,0,0,0.08)] p-5 sm:p-6 flex flex-col gap-4">
+                {/* Search Pill Input */}
+                <div className="flex items-center justify-between rounded-full border border-[#DFD8D0] bg-[#FAF8F5] px-4 py-2.5 shadow-inner">
+                  <span className="text-[12.5px] font-normal text-[#2A2A2A]">
+                    Your Company
                   </span>
-                  <span className="px-2.5 py-1 rounded-lg hover:bg-neutral-200/60 transition-colors">
-                    3D Images
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg hover:bg-neutral-200/60 transition-colors">
-                    TypeScript
-                  </span>
-                  <span className="px-2.5 py-1 rounded-lg hover:bg-neutral-200/60 transition-colors">
-                    Documents
-                  </span>
-                </div>
-
-                {/* Realistic Deliverable Result Card */}
-                <div className="p-4 rounded-xl bg-white border border-neutral-200/80 shadow-2xs flex flex-col gap-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono text-[#19A974] font-semibold flex items-center gap-1.5">
-                      <Folder className="size-3.5" />
-                      <span>Habesha Model / Marketing / 3D Renders</span>
-                    </span>
-                    <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Gemini 2.5 Flash
-                    </span>
+                  <div className="flex items-center gap-2.5 text-[#8A8A8A]">
+                    <X className="size-3.5 cursor-pointer hover:text-black transition-colors" />
+                    <Mic className="size-3.5 cursor-pointer text-[#4285F4]" />
+                    <Search className="size-3.5 cursor-pointer text-[#8A8A8A]" />
                   </div>
+                </div>
 
-                  <h3 className="text-sm font-bold text-neutral-900">
-                    habesha-hero-character-3d.png
-                  </h3>
+                {/* Search Category Tabs */}
+                <div className="flex items-center gap-4 border-b border-[#F0ECE6] pb-2.5 text-[11px] font-medium text-[#6B6B6B]">
+                  {(['Tous', 'Images', 'Video', 'Shopping', 'Maps'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => setGoogleTab(tab)}
+                      className={`flex items-center gap-1.5 pb-1 border-b-2 transition-all cursor-pointer ${
+                        googleTab === tab
+                          ? 'border-[#4285F4] text-[#1A73E8]'
+                          : 'border-transparent text-[#6B6B6B] hover:text-black'
+                      }`}
+                    >
+                      {tab === 'Tous' && <Search className="size-3" />}
+                      {tab === 'Images' && <ImageIcon className="size-3" />}
+                      {tab === 'Video' && <Video className="size-3" />}
+                      {tab === 'Shopping' && <ShoppingBag className="size-3" />}
+                      {tab === 'Maps' && <MapPin className="size-3" />}
+                      <span>{tab === 'Video' ? 'Vidéo' : tab}</span>
+                    </button>
+                  ))}
+                </div>
 
-                  <p className="text-xs text-neutral-500 line-clamp-2 leading-relaxed">
-                    "Generate a photorealistic 3D Habesha character wearing traditional woven
-                    clothing with golden embroidery standing against a warm minimal studio
-                    background..."
+                {/* Organic Search Result */}
+                <div className="flex flex-col gap-1 pt-1">
+                  <div className="flex items-center gap-1.5 text-[11px] text-[#555555]">
+                    <div className="size-3.5 rounded-full bg-[#FF5A26] flex items-center justify-center text-white text-[8px] font-bold">
+                      Y
+                    </div>
+                    <span className="truncate">yourcompany.com</span>
+                  </div>
+                  <h4 className="text-[16px] font-medium text-[#1A0DAB] hover:underline cursor-pointer tracking-tight">
+                    Your Company
+                  </h4>
+                  <p className="text-[12px] text-[#4D5156] leading-relaxed">
+                    Most people click on one of the top few results when
+                    searching, so if your website isn&apos;t there, you&apos;re
+                    missing out on potential customers.
                   </p>
-
-                  <div className="pt-2 border-t border-neutral-100 flex items-center justify-between text-[11px] text-neutral-400 font-mono">
-                    <span>PNG • 2.4 MB</span>
-                    <span className="text-[#19A974] font-semibold">98% AI Confidence</span>
-                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ================================================================= */}
-      {/* 4. SECTION 3: ASYMMETRIC CARD 2 (BUILD TRUST & CREDIBILITY)       */}
-      {/* ================================================================= */}
-      <section className="max-w-6xl mx-auto px-6 py-8 w-full">
-        <div className="rounded-3xl border border-neutral-200/80 bg-white p-8 sm:p-12 shadow-sm relative overflow-hidden">
-          {/* Ambient emerald illumination in bottom left */}
-          <div
-            className="absolute -left-16 -bottom-16 size-96 bg-[radial-gradient(circle,rgba(25,169,116,0.18),transparent_70%)] pointer-events-none -z-0"
-            aria-hidden="true"
-          />
+        {/* =============================================================== */}
+        {/* 4. BENTO 2: BUILD TRUST & CREDIBILITY (DA GRAPH & TOOLTIPS)      */}
+        {/* =============================================================== */}
+        <section className="relative z-10 px-6 sm:px-10 lg:px-14 pb-16">
+          <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center rounded-[28px] bg-white/95 border border-[#ECE7E1] shadow-[0_10px_35px_-10px_rgba(0,0,0,0.04)] p-8 sm:p-12 overflow-hidden">
+            <div
+              className="pointer-events-none absolute -top-16 -left-16 size-72 rounded-full bg-gradient-to-br from-[#FF5A26]/18 via-[#FF9E66]/12 to-transparent blur-[65px]"
+              aria-hidden="true"
+            />
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center relative z-10">
-            {/* Left Column: Analytics Chart & Subfolder Hierarchy Card (Matching Chart in Reference) */}
-            <div className="lg:col-span-6 order-2 lg:order-1">
-              <div className="rounded-2xl border border-neutral-200/90 bg-[#FAF9F6] p-5 shadow-sm flex flex-col gap-4">
-                <div className="flex items-center justify-between border-b border-neutral-200/60 pb-3">
-                  <div>
-                    <span className="text-xs font-bold text-neutral-900 block">
-                      Deliverable Velocity & Structure
-                    </span>
-                    <span className="text-[11px] text-neutral-400">
-                      Automated classification efficiency
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-[#19A974] text-white">
-                    PostgreSQL RLS
+            {/* Left Graphic: Domain Authority Over Time Area Curve */}
+            <div className="lg:col-span-6 relative flex items-center justify-center order-2 lg:order-1">
+              <div className="relative w-full max-w-md rounded-2xl bg-white border border-[#E8E3DD] shadow-[0_16px_36px_-8px_rgba(0,0,0,0.08)] p-6 flex flex-col gap-5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11.5px] font-medium text-[#888888] tracking-tight">
+                    Domain authority over time
                   </span>
+                  <div className="size-2 rounded-full bg-[#FF5A26]" />
                 </div>
 
-                {/* Subfolder Chips */}
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-3 bg-white border border-neutral-200/70 rounded-xl">
-                    <span className="text-[10px] font-mono text-neutral-400 block uppercase">
-                      Marketing / 3D
-                    </span>
-                    <span className="text-lg font-extrabold text-neutral-900 font-mono">
-                      48 files
-                    </span>
-                  </div>
-                  <div className="p-3 bg-white border border-neutral-200/70 rounded-xl">
-                    <span className="text-[10px] font-mono text-neutral-400 block uppercase">
-                      Frontend / Auth
-                    </span>
-                    <span className="text-lg font-extrabold text-[#19A974] font-mono">
-                      12 files
-                    </span>
-                  </div>
-                </div>
-
-                {/* SVG Area Chart matching Reference Graphic */}
-                <div className="p-4 bg-white border border-neutral-200/70 rounded-xl flex flex-col gap-2">
-                  <div className="flex items-center justify-between text-[11px] text-neutral-500 font-medium">
-                    <span>Organized Output</span>
-                    <span className="text-emerald-600 font-bold font-mono">+94% faster retrieval</span>
-                  </div>
-
-                  <svg viewBox="0 0 300 90" className="w-full h-24 overflow-visible">
+                <div className="relative w-full h-44 flex items-center justify-center">
+                  <svg
+                    viewBox="0 0 340 160"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-full h-full overflow-visible"
+                  >
                     <defs>
-                      <linearGradient id="curveGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#19A974" stopOpacity="0.3" />
-                        <stop offset="100%" stopColor="#19A974" stopOpacity="0.0" />
+                      <linearGradient
+                        id="daAreaGradient"
+                        x1="170"
+                        y1="15"
+                        x2="170"
+                        y2="155"
+                        gradientUnits="userSpaceOnUse"
+                      >
+                        <stop stopColor="#FF5A26" stopOpacity="0.32" />
+                        <stop offset="0.6" stopColor="#FFA066" stopOpacity="0.12" />
+                        <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
                       </linearGradient>
                     </defs>
+
+                    {/* Reference Grids */}
+                    <line x1="10" y1="40" x2="330" y2="40" stroke="#F0EBE5" strokeWidth="1" strokeDasharray="4 4" />
+                    <line x1="10" y1="85" x2="330" y2="85" stroke="#F0EBE5" strokeWidth="1" strokeDasharray="4 4" />
+                    <line x1="10" y1="130" x2="330" y2="130" stroke="#F0EBE5" strokeWidth="1" strokeDasharray="4 4" />
+
+                    {/* Area Fill */}
                     <path
-                      d="M 0 75 Q 70 65 140 40 T 300 15 L 300 90 L 0 90 Z"
-                      fill="url(#curveGrad)"
+                      d="M 15 145 C 80 142, 130 115, 185 80 C 235 48, 265 32, 320 20 L 320 155 L 15 155 Z"
+                      fill="url(#daAreaGradient)"
                     />
+
+                    {/* High-tension Ascending Spline */}
                     <path
-                      d="M 0 75 Q 70 65 140 40 T 300 15"
-                      fill="none"
-                      stroke="#19A974"
-                      strokeWidth="2.5"
+                      d="M 15 145 C 80 142, 130 115, 185 80 C 235 48, 265 32, 320 20"
+                      stroke="#FF5A26"
+                      strokeWidth="2.8"
+                      strokeLinecap="round"
                     />
-                    <circle cx="140" cy="40" r="4" fill="#19A974" />
-                    <circle cx="300" cy="15" r="4" fill="#19A974" />
+
+                    <circle cx="185" cy="80" r="4.5" fill="#FFFFFF" stroke="#FF5A26" strokeWidth="2.5" />
+                    <circle cx="275" cy="35" r="4.5" fill="#FFFFFF" stroke="#FF5A26" strokeWidth="2.5" />
                   </svg>
+
+                  {/* Tooltip 1: 21-40 Moderate */}
+                  <div
+                    onMouseEnter={() => setHoveredTooltip('moderate')}
+                    onMouseLeave={() => setHoveredTooltip(null)}
+                    style={{ left: '53%', top: '38%' }}
+                    className="absolute -translate-x-1/2 -translate-y-full mb-2 cursor-pointer z-10"
+                  >
+                    <div
+                      className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                        hoveredTooltip === 'moderate'
+                          ? 'scale-105 -translate-y-0.5'
+                          : ''
+                      }`}
+                    >
+                      <span className="text-[11.5px] font-bold text-[#1F1F1F]">
+                        21-40
+                      </span>
+                      <span className="text-[9.5px] font-medium text-[#777777]">
+                        Moderate
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tooltip 2: 41-60 High */}
+                  <div
+                    onMouseEnter={() => setHoveredTooltip('high')}
+                    onMouseLeave={() => setHoveredTooltip(null)}
+                    style={{ left: '79%', top: '15%' }}
+                    className="absolute -translate-x-1/2 -translate-y-full mb-2 cursor-pointer z-10"
+                  >
+                    <div
+                      className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                        hoveredTooltip === 'high'
+                          ? 'scale-105 -translate-y-0.5'
+                          : ''
+                      }`}
+                    >
+                      <span className="text-[11.5px] font-bold text-[#1F1F1F]">
+                        41-60
+                      </span>
+                      <span className="text-[9.5px] font-medium text-[#FF5A26]">
+                        High
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column: Heading, Subtitle & Trust Points */}
-            <div className="lg:col-span-6 flex flex-col items-start text-left order-1 lg:order-2">
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-neutral-950 leading-[1.12]">
-                Build trust
-                <span className="block text-neutral-900">and credibility</span>
+            {/* Right Copy Column */}
+            <div className="lg:col-span-6 flex flex-col gap-5 order-1 lg:order-2">
+              <div className="flex flex-col gap-1 tracking-tight">
+                <h3 className="text-3xl sm:text-4xl font-bold text-[#141414] tracking-[-0.03em] leading-[1.12]">
+                  Build trust <br />
+                  and credibility
+                </h3>
+              </div>
+
+              <p className="text-[14px] sm:text-[14.5px] text-[#636363] leading-relaxed max-w-md">
+                Reputable listings help your startup stand out as trustworthy and
+                professional, building confidence with your audience.
+              </p>
+
+              <div className="flex flex-col gap-3.5 pt-2">
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <CheckCircle2 className="size-4 stroke-[2.2]" />
+                  </div>
+                  <span>High-authority backlinks that search engines index faster</span>
+                </div>
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <CheckCircle2 className="size-4 stroke-[2.2]" />
+                  </div>
+                  <span>Instant founder credibility and referral discovery traffic</span>
+                </div>
+                <div className="flex items-center gap-3 text-[13.5px] font-medium text-[#2E2E2E]">
+                  <div className="flex size-5 items-center justify-center rounded-md text-[#FF5A26]">
+                    <CheckCircle2 className="size-4 stroke-[2.2]" />
+                  </div>
+                  <span>Full transparent spreadsheet report with live screenshot proof</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 5. INTERACTIVE DIRECTORY DATABASE EXPLORER                        */}
+        {/* =============================================================== */}
+        <section id="directories" className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 border-t border-[#ECE7E1]">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+            <div>
+              <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#FF5A26] uppercase tracking-wider mb-2">
+                <Globe2 className="size-4" />
+                <span>Transparent Authority Database</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">
+                Explore the 150+ Vetted Directories
               </h2>
-
-              <p className="mt-4 text-sm text-neutral-500 leading-relaxed max-w-lg">
-                Reputable teams need clean, organized records. Orfilo ensures every generated asset
-                is stored with prompt provenance, structured naming, and cryptographic PostgreSQL
-                isolation.
+              <p className="text-xs sm:text-sm text-[#666666] mt-1 max-w-xl">
+                Inspect DR metrics, traffic, and backlink types before submitting. No spam networks, no PBNs.
               </p>
+            </div>
 
-              <div className="mt-8 flex flex-col gap-3.5 w-full">
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    Row-Level Security (RLS) guarantees complete workspace privacy
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    Interactive subfolder explorer with instant drag-and-drop moving
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="size-5 rounded-md bg-[#E8F7F0] text-[#19A974] flex items-center justify-center shrink-0 mt-0.5">
-                    <Check className="size-3.5 stroke-[3]" />
-                  </div>
-                  <span className="text-xs font-semibold text-neutral-800">
-                    One-click code copying and native file export without loss
-                  </span>
-                </div>
+            {/* Quick Stats Pill */}
+            <div className="flex items-center gap-3 bg-white border border-[#E8E3DD] rounded-2xl px-4 py-2.5 shadow-2xs">
+              <div>
+                <span className="text-[10px] font-mono text-[#888888] block uppercase">Avg Authority</span>
+                <span className="text-base font-bold text-[#141414] font-mono">DR 78.4</span>
+              </div>
+              <div className="h-7 w-px bg-neutral-200" />
+              <div>
+                <span className="text-[10px] font-mono text-[#888888] block uppercase">Network Reach</span>
+                <span className="text-base font-bold text-[#FF5A26] font-mono">42M+/mo</span>
               </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ================================================================= */}
-      {/* 5. SECTION 4: HOW IT WORKS BENTO GRID                             */}
-      {/* ================================================================= */}
-      <section id="how-it-works" className="max-w-6xl mx-auto px-6 py-16 w-full">
-        <div className="text-center max-w-2xl mx-auto mb-12">
-          <span className="text-xs font-semibold font-mono uppercase text-[#19A974] tracking-wider block mb-2">
-            Architecture & Workflow
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-neutral-950 tracking-tight">
-            How Orfilo powers your pipeline
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-500 mt-2">
-            From the moment your AI finishes generating, Orfilo classifies and secures the asset.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1 */}
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="size-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-900 mb-4">
-                <Puzzle className="size-5 text-[#19A974]" />
-              </div>
-              <h3 className="text-sm font-bold text-neutral-900">1. Chrome Companion</h3>
-              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                Persistent save button attaches to code blocks and images in ChatGPT, Claude, and
-                Gemini.
-              </p>
+          {/* Search & Category Filter Bar */}
+          <div className="p-4 rounded-2xl bg-white border border-[#E8E3DD] shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-neutral-400" />
+              <input
+                type="text"
+                placeholder="Search Product Hunt, Indie Hackers, G2, AI tools..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-[#FAF8F5] border border-[#E0D9D1] rounded-xl text-xs text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-[#FF5A26]"
+              />
             </div>
-            <span className="text-[10px] font-mono text-neutral-400 mt-4 block">0 click exports</span>
-          </div>
 
-          {/* Card 2 */}
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="size-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-900 mb-4">
-                <Sparkles className="size-5 text-[#19A974]" />
-              </div>
-              <h3 className="text-sm font-bold text-neutral-900">2. Semantic Renaming</h3>
-              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                Gemini 2.5 Flash extracts subject semantics from prompts to synthesize kebab-case
-                names.
-              </p>
-            </div>
-            <span className="text-[10px] font-mono text-neutral-400 mt-4 block">No random hashes</span>
-          </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {['All', 'SaaS', 'AI', 'DevTools', 'Mobile'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    selectedCategory === cat
+                      ? 'bg-[#121212] text-white shadow-2xs'
+                      : 'bg-[#FAF8F5] text-[#555555] hover:text-black hover:bg-[#F0ECE6]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
 
-          {/* Card 3 */}
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="size-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-900 mb-4">
-                <FolderOpen className="size-5 text-[#19A974]" />
-              </div>
-              <h3 className="text-sm font-bold text-neutral-900">3. Subfolder Routing</h3>
-              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                Assets are matched to appropriate projects and subfolders automatically with live
-                counts.
-              </p>
-            </div>
-            <span className="text-[10px] font-mono text-neutral-400 mt-4 block">Unlimited nesting</span>
-          </div>
-
-          {/* Card 4 */}
-          <div className="p-6 rounded-2xl bg-white border border-neutral-200/80 shadow-2xs flex flex-col justify-between">
-            <div>
-              <div className="size-10 rounded-xl bg-neutral-100 flex items-center justify-center text-neutral-900 mb-4">
-                <Lock className="size-5 text-[#19A974]" />
-              </div>
-              <h3 className="text-sm font-bold text-neutral-900">4. Supabase & RLS</h3>
-              <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                Sub-120ms ingestion latency into PostgreSQL with cryptographic Row-Level Security.
-              </p>
-            </div>
-            <span className="text-[10px] font-mono text-neutral-400 mt-4 block">100% private</span>
-          </div>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 6. SECTION 5: INTERACTIVE PROMPT PLAYGROUND                       */}
-      {/* ================================================================= */}
-      <section id="playground" className="max-w-6xl mx-auto px-6 py-12 w-full">
-        <div className="p-8 sm:p-12 rounded-3xl bg-neutral-900 text-white shadow-xl relative overflow-hidden">
-          <div
-            className="absolute top-0 right-0 size-80 bg-[radial-gradient(circle,rgba(25,169,116,0.35),transparent_70%)] pointer-events-none"
-            aria-hidden="true"
-          />
-
-          <div className="relative z-10 max-w-xl">
-            <span className="text-xs font-semibold font-mono uppercase text-[#19A974] tracking-wider block mb-2">
-              Live Intelligence Engine
-            </span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-              Test semantic name synthesis
-            </h2>
-            <p className="text-xs sm:text-sm text-neutral-400 mt-2">
-              Select an AI prompt to see how Orfilo parses context and generates clean kebab-case names.
-            </p>
-          </div>
-
-          {/* Segmented Mode Tabs */}
-          <div className="mt-8 flex flex-wrap gap-2 relative z-10">
-            {PLAYGROUND_PROMPTS.map((item, index) => (
               <button
-                key={item.id}
-                onClick={() => setActivePlaygroundIndex(index)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  activePlaygroundIndex === index
-                    ? 'bg-[#19A974] text-white shadow-sm'
-                    : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700'
+                onClick={() => setDofollowOnly(!dofollowOnly)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                  dofollowOnly
+                    ? 'border-[#FF5A26] bg-[#FF5A26]/10 text-[#FF5A26]'
+                    : 'border-[#E0D9D1] bg-[#FAF8F5] text-[#666666] hover:text-black'
                 }`}
               >
-                {item.title}
+                Do-Follow Only
               </button>
+            </div>
+          </div>
+
+          {/* Directory Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {filteredDirectories.slice(0, 9).map((dir) => (
+              <div
+                key={dir.id}
+                className="p-4 rounded-2xl bg-white border border-[#E8E3DD] shadow-2xs hover:border-[#FF5A26]/50 transition-all flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="size-7 rounded-lg bg-[#FAF8F5] border border-[#E0D9D1] flex items-center justify-center font-bold text-xs text-[#FF5A26]">
+                        {dir.logoText}
+                      </div>
+                      <span className="text-xs font-bold text-neutral-900 group-hover:text-[#FF5A26] transition-colors">
+                        {dir.name}
+                      </span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-[#FAF8F5] border border-[#E0D9D1] text-[10px] font-mono font-bold text-[#FF5A26]">
+                      DR {dir.domainRating}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-neutral-500 font-mono mt-1">
+                    <span>{dir.monthlyTraffic} visits/mo</span>
+                    <span>•</span>
+                    <span className={dir.backlinkType === 'Do-Follow' ? 'text-emerald-600 font-semibold' : ''}>
+                      {dir.backlinkType}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-2.5 border-t border-[#F0ECE6] flex items-center justify-between text-[11px]">
+                  <span className="text-neutral-400 font-mono">{dir.submissionSpeed} turnaround</span>
+                  <span className="text-[#FF5A26] font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                    <span>Included in {dir.tier}</span>
+                    <ArrowRight className="size-3" />
+                  </span>
+                </div>
+              </div>
             ))}
           </div>
 
-          {/* Simulation Output Card */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activePlayground.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-              className="mt-6 p-6 rounded-2xl bg-neutral-950/80 border border-neutral-800 flex flex-col md:flex-row gap-6 justify-between items-start md:items-center relative z-10"
+          <div className="mt-8 text-center">
+            <button
+              onClick={handlePrimaryCta}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#121212] hover:bg-black text-white text-xs font-semibold shadow-md active:scale-[0.98] transition-all cursor-pointer"
             >
-              <div className="flex-1 space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-neutral-800 text-neutral-300">
-                    Source: {activePlayground.platform}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#19A974]">
-                    Target: {activePlayground.project} / {activePlayground.subfolder}
-                  </span>
+              <span>Unlock all 150+ directories with one click</span>
+              <ArrowRight className="size-3.5 stroke-[2.2]" />
+            </button>
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 6. FOUNDER ROI CALCULATOR                                         */}
+        {/* =============================================================== */}
+        <section className="relative z-10 px-6 sm:px-10 lg:px-14 py-12 border-t border-[#ECE7E1]">
+          <div className="p-8 sm:p-10 rounded-[28px] bg-white border border-[#ECE7E1] shadow-2xs grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-6 flex flex-col gap-4">
+              <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#FF5A26] uppercase tracking-wider">
+                <DollarSign className="size-4" />
+                <span>Opportunity Cost Calculator</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold text-[#141414] tracking-tight">
+                How much is manual submission costing you?
+              </h2>
+              <p className="text-xs sm:text-sm text-[#666666] leading-relaxed">
+                Founders spend an average of 35 minutes per directory filling identical forms, uploading logos, and verifying emails. See what doing it yourself really costs.
+              </p>
+
+              {/* Slider 1: Hourly Rate */}
+              <div className="space-y-2 pt-2">
+                <div className="flex justify-between text-xs font-semibold text-neutral-800">
+                  <span>Your Hourly Value:</span>
+                  <span className="font-mono text-[#FF5A26]">${hourlyRate}/hr</span>
                 </div>
-                <p className="text-xs text-neutral-300 font-mono italic leading-relaxed">
-                  "{activePlayground.prompt}"
-                </p>
+                <input
+                  type="range"
+                  min="30"
+                  max="200"
+                  step="5"
+                  value={hourlyRate}
+                  onChange={(e) => setHourlyRate(Number(e.target.value))}
+                  className="w-full accent-[#FF5A26] cursor-pointer"
+                />
               </div>
 
-              <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800/80 min-w-[260px] space-y-1.5 shrink-0">
-                <span className="text-[10px] uppercase font-mono text-neutral-500 block">
-                  Synthesized Deliverable
-                </span>
-                <span className="text-sm font-mono font-bold text-emerald-400 block truncate">
-                  {activePlayground.targetFile}
-                </span>
-                <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400 pt-1 border-t border-neutral-800">
-                  <span>{activePlayground.mime}</span>
-                  <span>{activePlayground.size}</span>
+              {/* Slider 2: Directory Count */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs font-semibold text-neutral-800">
+                  <span>Directories Target:</span>
+                  <span className="font-mono text-[#FF5A26]">{selectedDirsCount} directories</span>
+                </div>
+                <input
+                  type="range"
+                  min="40"
+                  max="160"
+                  step="10"
+                  value={selectedDirsCount}
+                  onChange={(e) => setSelectedDirsCount(Number(e.target.value))}
+                  className="w-full accent-[#FF5A26] cursor-pointer"
+                />
+              </div>
+            </div>
+
+            {/* Right Card: Result Summary */}
+            <div className="lg:col-span-6 p-6 rounded-2xl bg-[#FAF8F5] border border-[#E8E3DD] flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="p-3 bg-white rounded-xl border border-[#E0D9D1]">
+                  <span className="text-[10px] uppercase font-mono text-neutral-400 block">Hours Required</span>
+                  <span className="text-2xl font-bold font-mono text-[#141414]">{hoursSpent} hrs</span>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-[#E0D9D1]">
+                  <span className="text-[10px] uppercase font-mono text-neutral-400 block">DIY Value Lost</span>
+                  <span className="text-2xl font-bold font-mono text-red-500">${manualLaborCost}</span>
                 </div>
               </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </section>
 
-      {/* ================================================================= */}
-      {/* 7. SECTION 6: FAQ ACCORDION                                       */}
-      {/* ================================================================= */}
-      <section id="faq" className="max-w-4xl mx-auto px-6 py-16 w-full">
-        <div className="text-center max-w-xl mx-auto mb-10">
-          <span className="text-xs font-semibold font-mono uppercase text-[#19A974] tracking-wider block mb-2">
-            Frequently Asked Questions
-          </span>
-          <h2 className="text-3xl font-extrabold text-neutral-950 tracking-tight">
-            Everything you need to know
-          </h2>
-        </div>
+              <div className="p-4 rounded-xl bg-white border border-[#FF5A26]/30 shadow-2xs flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-mono text-[#FF5A26] font-bold block">Launchdir Done-For-You</span>
+                  <span className="text-xl font-extrabold text-[#141414] font-mono">${launchdirCost} one-time</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-mono text-emerald-600 font-bold block">Net Founder Savings</span>
+                  <span className="text-xl font-extrabold text-emerald-600 font-mono">+${netSavings}</span>
+                </div>
+              </div>
 
-        <div className="flex flex-col gap-3">
-          {FAQ_ITEMS.map((item, index) => {
-            const isOpen = openFaqIndex === index;
-            return (
-              <div
-                key={item.question}
-                className="rounded-2xl border border-neutral-200/80 bg-white overflow-hidden transition-all shadow-2xs"
+              <button
+                type="button"
+                onClick={handlePrimaryCta}
+                className="w-full py-3 rounded-full bg-[#121212] hover:bg-black text-white text-xs font-semibold shadow-md active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
               >
-                <button
-                  onClick={() => setOpenFaqIndex(isOpen ? null : index)}
-                  className="w-full p-5 text-left flex items-center justify-between gap-4 font-semibold text-sm text-neutral-900 cursor-pointer"
-                >
-                  <span>{item.question}</span>
-                  <ChevronDown
-                    className={`size-4 text-neutral-400 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-[#19A974]' : ''
-                    }`}
-                  />
-                </button>
+                <span>Save {hoursSpent} hours & start now</span>
+                <ArrowRight className="size-3.5 stroke-[2.2]" />
+              </button>
+            </div>
+          </div>
+        </section>
 
-                <AnimatePresence initial={false}>
-                  {isOpen && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <p className="px-5 pb-5 text-xs text-neutral-500 leading-relaxed border-t border-neutral-100 pt-3">
-                        {item.answer}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 8. FINAL CALL TO ACTION (MATCHING PILL CTA IN REFERENCE)          */}
-      {/* ================================================================= */}
-      <section className="max-w-6xl mx-auto px-6 py-12 w-full">
-        <div className="p-8 sm:p-14 rounded-3xl bg-[#FAF9F6] border border-neutral-200/90 shadow-sm flex flex-col items-center text-center relative overflow-hidden">
-          <div
-            className="absolute size-96 bg-[radial-gradient(circle,rgba(25,169,116,0.16),transparent_70%)] pointer-events-none -z-0"
-            aria-hidden="true"
-          />
-
-          <span className="text-xs font-semibold font-mono uppercase text-[#19A974] tracking-wider block mb-2 z-10">
-            Start in 30 seconds
-          </span>
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-neutral-950 tracking-tight max-w-xl z-10 leading-[1.12]">
-            List and organize your deliverables today
-          </h2>
-          <p className="text-xs sm:text-sm text-neutral-500 max-w-md mt-3 z-10">
-            Free forever for individual creators. No credit card required.
-          </p>
-
-          <button
-            onClick={onSignUp}
-            className="mt-8 px-7 py-3.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-full text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center gap-2 group z-10"
-          >
-            <span>Get started with Orfilo for free</span>
-            <ArrowRight className="size-3.5 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
-      </section>
-
-      {/* ================================================================= */}
-      {/* 9. FOOTER (CLEAN, MINIMALIST, HIGH-CLASS)                         */}
-      {/* ================================================================= */}
-      <footer className="border-t border-neutral-200/70 bg-[#FAF9F6] py-12 px-6 md:px-12 mt-auto">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-3">
-            <OrfiloBrand variant="horizontal" size="sm" showTagline={false} />
-            <span className="text-xs text-neutral-400 font-mono">
-              © {new Date().getFullYear()} Orfilo Inc.
+        {/* =============================================================== */}
+        {/* 7. ONE-TIME TRANSPARENT PRICING PLANS                             */}
+        {/* =============================================================== */}
+        <section id="pricing" className="relative z-10 px-6 sm:px-10 lg:px-14 py-16 border-t border-[#ECE7E1]">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="text-xs font-semibold font-mono uppercase text-[#FF5A26] tracking-wider block mb-2">
+              Transparent One-Time Pricing
             </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#141414] tracking-tight">
+              Pay Once. Keep Your Backlinks Forever.
+            </h2>
+            <p className="text-xs sm:text-sm text-[#666666] mt-2">
+              No monthly subscriptions. 100% manual human submission. Full live report.
+            </p>
           </div>
 
-          <div className="flex items-center gap-6 text-xs text-neutral-500 font-medium">
-            <a href="#how-it-works" className="hover:text-neutral-950 transition-colors">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+            {PRICING_TIERS.map((tier) => {
+              const isPopular = tier.popular;
+              return (
+                <div
+                  key={tier.id}
+                  className={`rounded-3xl p-7 flex flex-col justify-between transition-all relative ${
+                    isPopular
+                      ? 'bg-white border-2 border-[#FF5A26] shadow-xl shadow-orange-500/10'
+                      : 'bg-white border border-[#E8E3DD] shadow-2xs hover:border-neutral-300'
+                  }`}
+                >
+                  {isPopular && (
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#FF5A26] text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                      Most Popular • 70% of Founders Choose
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-bold text-neutral-900">{tier.name}</h3>
+                      <span className="text-xs font-mono text-[#888888] line-through">
+                        ${tier.originalPrice}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline gap-1.5 mb-3">
+                      <span className="text-4xl font-extrabold font-mono text-[#141414]">
+                        ${tier.price}
+                      </span>
+                      <span className="text-xs text-neutral-500 font-medium">one-time</span>
+                    </div>
+
+                    <p className="text-xs text-neutral-500 leading-relaxed mb-6">
+                      {tier.tagline}
+                    </p>
+
+                    <div className="pt-4 border-t border-neutral-100 space-y-2.5">
+                      {tier.features.slice(0, 6).map((feat, idx) => (
+                        <div key={idx} className="flex items-start gap-2.5 text-xs text-neutral-700">
+                          <Check className="size-4 text-[#FF5A26] shrink-0 mt-0.5 stroke-[2.5]" />
+                          <span>{feat.text}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 pt-4 border-t border-neutral-100">
+                    <button
+                      type="button"
+                      onClick={handlePrimaryCta}
+                      className={`w-full py-3 rounded-full text-xs font-semibold shadow-sm transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-2 ${
+                        isPopular
+                          ? 'bg-[#FF5A26] hover:bg-[#E54817] text-white shadow-orange-500/25'
+                          : 'bg-[#121212] hover:bg-black text-white'
+                      }`}
+                    >
+                      <span>{tier.ctaText}</span>
+                      <ArrowRight className="size-3.5" />
+                    </button>
+                    <span className="text-[10px] text-center text-neutral-400 block mt-2">
+                      {tier.turnaround} • 30-Day Index Guarantee
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 8. FOUNDER REVIEWS & PROOF WALL                                  */}
+        {/* =============================================================== */}
+        <section className="relative z-10 px-6 sm:px-10 lg:px-14 py-16 border-t border-[#ECE7E1]">
+          <div className="text-center max-w-xl mx-auto mb-10">
+            <span className="text-xs font-semibold font-mono uppercase text-[#FF5A26] tracking-wider block mb-2">
+              Verified Social Proof
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#141414] tracking-tight">
+              Real results from verified founders
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {FOUNDER_TESTIMONIALS.slice(0, 3).map((item) => (
+              <div
+                key={item.id}
+                className="p-6 rounded-2xl bg-white border border-[#E8E3DD] shadow-2xs flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1 text-[#FF5A26]">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className="text-xs">★</span>
+                      ))}
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-[#FAF8F5] border border-[#E0D9D1] text-[10px] font-mono font-bold text-emerald-600">
+                      DR {item.drBefore} → {item.drAfter}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-neutral-700 italic leading-relaxed mb-4">
+                    "{item.quote}"
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-neutral-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-neutral-900 block">{item.name}</span>
+                    <span className="text-[10px] text-neutral-400">{item.company}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-[#FF5A26] font-semibold">{item.trafficGrowth}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 9. FAQ ACCORDION                                                 */}
+        {/* =============================================================== */}
+        <section id="faq" className="relative z-10 px-6 sm:px-10 lg:px-14 py-16 border-t border-[#ECE7E1]">
+          <div className="text-center max-w-xl mx-auto mb-10">
+            <span className="text-xs font-semibold font-mono uppercase text-[#FF5A26] tracking-wider block mb-2">
+              Frequently Asked Questions
+            </span>
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#141414] tracking-tight">
+              Everything you need to know
+            </h2>
+          </div>
+
+          <div className="max-w-3xl mx-auto flex flex-col gap-3">
+            {FAQ_ITEMS.slice(0, 5).map((faq, idx) => {
+              const isOpen = openFaqIndex === idx;
+              return (
+                <div
+                  key={faq.id}
+                  className="rounded-2xl border border-[#E8E3DD] bg-white overflow-hidden transition-all shadow-2xs"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
+                    className="w-full p-5 text-left flex items-center justify-between gap-4 font-semibold text-xs sm:text-sm text-neutral-900 cursor-pointer"
+                  >
+                    <span>{faq.question}</span>
+                    <ChevronDown
+                      className={`size-4 text-neutral-400 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-[#FF5A26]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <p className="px-5 pb-5 text-xs text-neutral-500 leading-relaxed border-t border-neutral-100 pt-3">
+                          {faq.answer}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 10. FINAL BOTTOM CTA BANNER                                      */}
+        {/* =============================================================== */}
+        <section className="relative z-10 px-6 sm:px-10 lg:px-14 py-16 border-t border-[#ECE7E1] text-center">
+          <div className="max-w-2xl mx-auto flex flex-col items-center gap-5">
+            <span className="text-xs font-semibold font-mono uppercase text-[#FF5A26] tracking-wider">
+              Launch Once. Rank Forever.
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-[#141414] tracking-tight leading-tight">
+              List your startup everywhere in 48 hours.
+            </h2>
+            <p className="text-xs sm:text-sm text-neutral-500 max-w-md">
+              Skip 50+ hours of manual form submissions. Get your complete spreadsheet report with live backlinks and screenshots.
+            </p>
+
+            <button
+              type="button"
+              onClick={handlePrimaryCta}
+              className="mt-3 inline-flex items-center gap-2.5 rounded-full bg-[#121212] px-8 py-4 text-sm font-semibold text-white shadow-lg shadow-black/15 transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-black hover:shadow-xl active:scale-[0.98] cursor-pointer"
+            >
+              <span>Get listed on 100+ directories now</span>
+              <ArrowRight className="size-4 stroke-[2.2]" />
+            </button>
+          </div>
+        </section>
+
+        {/* =============================================================== */}
+        {/* 11. FOOTER                                                       */}
+        {/* =============================================================== */}
+        <footer className="relative z-10 border-t border-[#ECE7E1] px-6 sm:px-10 lg:px-14 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-neutral-500">
+          <div className="flex items-center gap-2">
+            <LaunchdirRocketIcon className="size-5 text-[#FF5A26]" />
+            <span className="font-bold text-neutral-900">launchdir</span>
+            <span>© {new Date().getFullYear()} Launchdir Inc.</span>
+          </div>
+
+          <div className="flex items-center gap-6 font-medium">
+            <a href="#how-it-works" className="hover:text-black transition-colors">
               How it works
             </a>
-            <a href="#features" className="hover:text-neutral-950 transition-colors">
-              Features
+            <a href="#directories" className="hover:text-black transition-colors">
+              Directories
             </a>
-            <a href="#faq" className="hover:text-neutral-950 transition-colors">
+            <a href="#pricing" className="hover:text-black transition-colors">
+              Pricing
+            </a>
+            <a href="#faq" className="hover:text-black transition-colors">
               FAQ
             </a>
-            <button
-              onClick={onSignIn}
-              className="hover:text-neutral-950 transition-colors cursor-pointer"
-            >
-              Sign in
-            </button>
           </div>
 
           <div className="flex items-center gap-2 text-[11px] font-mono text-neutral-400">
-            <span className="size-2 rounded-full bg-[#19A974]" />
-            <span>All systems operational</span>
+            <span className="size-2 rounded-full bg-emerald-500" />
+            <span>Submission queues open</span>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </main>
     </div>
   );
 };
