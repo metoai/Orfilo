@@ -12,8 +12,6 @@ import { OrfiloBrand, OrfiloIcon } from './OrfiloBrand.tsx';
 import { OrfiloHeroMatrix } from './orfilo/OrfiloHeroMatrix.tsx';
 import { OrfiloBentoGrid } from './orfilo/OrfiloBentoGrid.tsx';
 import { OrfiloExplorer } from './orfilo/OrfiloExplorer.tsx';
-import { OrfiloRoiCalculator } from './orfilo/OrfiloRoiCalculator.tsx';
-import { OrfiloHowItWorks } from './orfilo/OrfiloHowItWorks.tsx';
 import { OrfiloPricing } from './orfilo/OrfiloPricing.tsx';
 import { OrfiloFaq } from './orfilo/OrfiloFaq.tsx';
 
@@ -68,13 +66,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </a>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-7 lg:gap-9 text-[13.5px] font-medium text-[#4D4D4D]">
-            <a
-              href="#how-it-works"
-              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
-            >
-              How It Works
-            </a>
+          <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-[13.5px] font-medium text-[#4D4D4D]">
             <a
               href="#features"
               className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
@@ -86,12 +78,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
             >
               Vault Explorer
-            </a>
-            <a
-              href="#calculator"
-              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
-            >
-              ROI Calculator
             </a>
             <a
               href="#pricing"
@@ -222,27 +208,17 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 3. HOW IT WORKS (3-STEP VISUAL WALKTHROUGH)                     */}
-        {/* =============================================================== */}
-        <section
-          id="how-it-works"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
-        >
-          <OrfiloHowItWorks onCtaClick={handlePrimaryCta} />
-        </section>
-
-        {/* =============================================================== */}
-        {/* 4. BENTO GRID FEATURES (TRANSFORMER + VELOCITY SPLINE)          */}
+        {/* 3. MODERN SAAS DESCRIPTIVE BENTO CARDS                          */}
         {/* =============================================================== */}
         <section
           id="features"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
+          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24"
         >
           <OrfiloBentoGrid onCtaClick={handlePrimaryCta} />
         </section>
 
         {/* =============================================================== */}
-        {/* 5. INTERACTIVE VAULT EXPLORER                                   */}
+        {/* 4. INTERACTIVE VAULT EXPLORER                                   */}
         {/* =============================================================== */}
         <section
           id="explorer"
@@ -252,17 +228,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 6. TIME & FOCUS ROI CALCULATOR                                  */}
-        {/* =============================================================== */}
-        <section
-          id="calculator"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
-        >
-          <OrfiloRoiCalculator onCtaClick={handlePrimaryCta} />
-        </section>
-
-        {/* =============================================================== */}
-        {/* 7. TRANSPARENT PRICING TIERS                                    */}
+        {/* 5. TRANSPARENT PRICING TIERS                                    */}
         {/* =============================================================== */}
         <section
           id="pricing"
@@ -272,7 +238,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 8. FAQ ACCORDION                                                */}
+        {/* 6. FAQ ACCORDION                                                */}
         {/* =============================================================== */}
         <section
           id="faq"
@@ -283,7 +249,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </main>
 
       {/* =============================================================== */}
-      {/* 9. FULL-PAGE MODERN FOOTER                                       */}
+      {/* 7. FULL-PAGE MODERN FOOTER                                       */}
       {/* =============================================================== */}
       <footer className="w-full border-t border-black/5 bg-[#F4F1EB] py-16 px-4 sm:px-6 lg:px-8 mt-12">
         <div className="max-w-7xl mx-auto flex flex-col gap-12">
@@ -308,17 +274,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <span className="text-xs font-bold text-[#1F1F1F] uppercase tracking-wider">
                   Product
                 </span>
-                <a href="#how-it-works" className="text-xs text-[#666666] hover:text-black transition-colors">
-                  How It Works
-                </a>
                 <a href="#features" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Semantic Naming
                 </a>
                 <a href="#explorer" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Vault Explorer
-                </a>
-                <a href="#calculator" className="text-xs text-[#666666] hover:text-black transition-colors">
-                  ROI Calculator
                 </a>
                 <a href="#pricing" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Pricing Plans
