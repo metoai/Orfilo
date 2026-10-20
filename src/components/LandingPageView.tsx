@@ -13,8 +13,8 @@ import { OrfiloHeroMatrix } from './orfilo/OrfiloHeroMatrix.tsx';
 import { OrfiloBentoGrid } from './orfilo/OrfiloBentoGrid.tsx';
 import { OrfiloExplorer } from './orfilo/OrfiloExplorer.tsx';
 import { OrfiloRoiCalculator } from './orfilo/OrfiloRoiCalculator.tsx';
+import { OrfiloHowItWorks } from './orfilo/OrfiloHowItWorks.tsx';
 import { OrfiloPricing } from './orfilo/OrfiloPricing.tsx';
-import { OrfiloTestimonials } from './orfilo/OrfiloTestimonials.tsx';
 import { OrfiloFaq } from './orfilo/OrfiloFaq.tsx';
 
 interface LandingPageViewProps {
@@ -68,7 +68,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
           </a>
 
           {/* Navigation Links */}
-          <nav className="hidden md:flex items-center gap-8 lg:gap-10 text-[13.5px] font-medium text-[#4D4D4D]">
+          <nav className="hidden md:flex items-center gap-7 lg:gap-9 text-[13.5px] font-medium text-[#4D4D4D]">
+            <a
+              href="#how-it-works"
+              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
+            >
+              How It Works
+            </a>
             <a
               href="#features"
               className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
@@ -150,7 +156,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               {/* Badge */}
               <div className="inline-flex items-center gap-2 rounded-full bg-[#E8F7F0] border border-[#BCEBD7] px-3.5 py-1.5 text-[13px] font-medium text-[#19A974]">
                 <Sparkles className="size-3.5 fill-[#19A974]" />
-                <span>Over 18,400+ AI deliverables organized</span>
+                <span>Public Beta • Chrome Extension Ready</span>
               </div>
 
               {/* Exact Hero Typographic Hierarchy */}
@@ -216,17 +222,27 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 3. BENTO GRID FEATURES (TRANSFORMER + VELOCITY SPLINE)          */}
+        {/* 3. HOW IT WORKS (3-STEP VISUAL WALKTHROUGH)                     */}
+        {/* =============================================================== */}
+        <section
+          id="how-it-works"
+          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
+        >
+          <OrfiloHowItWorks onCtaClick={handlePrimaryCta} />
+        </section>
+
+        {/* =============================================================== */}
+        {/* 4. BENTO GRID FEATURES (TRANSFORMER + VELOCITY SPLINE)          */}
         {/* =============================================================== */}
         <section
           id="features"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24"
+          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
         >
           <OrfiloBentoGrid onCtaClick={handlePrimaryCta} />
         </section>
 
         {/* =============================================================== */}
-        {/* 4. INTERACTIVE VAULT EXPLORER                                   */}
+        {/* 5. INTERACTIVE VAULT EXPLORER                                   */}
         {/* =============================================================== */}
         <section
           id="explorer"
@@ -236,7 +252,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 5. TIME & FOCUS ROI CALCULATOR                                  */}
+        {/* 6. TIME & FOCUS ROI CALCULATOR                                  */}
         {/* =============================================================== */}
         <section
           id="calculator"
@@ -246,23 +262,13 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 6. TRANSPARENT PRICING TIERS                                    */}
+        {/* 7. TRANSPARENT PRICING TIERS                                    */}
         {/* =============================================================== */}
         <section
           id="pricing"
           className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
         >
           <OrfiloPricing onSelectTier={handleSelectPricingTier} />
-        </section>
-
-        {/* =============================================================== */}
-        {/* 7. FOUNDER & BUILDER TESTIMONIALS                               */}
-        {/* =============================================================== */}
-        <section
-          id="testimonials"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
-        >
-          <OrfiloTestimonials />
         </section>
 
         {/* =============================================================== */}
@@ -302,6 +308,9 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <span className="text-xs font-bold text-[#1F1F1F] uppercase tracking-wider">
                   Product
                 </span>
+                <a href="#how-it-works" className="text-xs text-[#666666] hover:text-black transition-colors">
+                  How It Works
+                </a>
                 <a href="#features" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Semantic Naming
                 </a>

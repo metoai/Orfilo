@@ -303,12 +303,12 @@ export const OrfiloBentoGrid: React.FC<{ onCtaClick: () => void }> = ({ onCtaCli
                 className="absolute -translate-x-1/2 -translate-y-full mb-2 cursor-pointer z-10"
               >
                 <div
-                  className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                  className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-3 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
                     hoveredTooltip === 'moderate' ? 'scale-105 -translate-y-0.5' : ''
                   }`}
                 >
-                  <span className="text-[11.5px] font-bold text-[#1F1F1F]">120+ Snippets</span>
-                  <span className="text-[9.5px] font-medium text-[#777777]">Frontend & API</span>
+                  <span className="text-[11px] font-bold text-[#1F1F1F] whitespace-nowrap">Zero-Lag Full-Text Search</span>
+                  <span className="text-[9.5px] font-medium text-[#777777]">Subsecond Indexing</span>
                 </div>
               </div>
 
@@ -320,12 +320,12 @@ export const OrfiloBentoGrid: React.FC<{ onCtaClick: () => void }> = ({ onCtaCli
                 className="absolute -translate-x-1/2 -translate-y-full mb-2 cursor-pointer z-10"
               >
                 <div
-                  className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-2.5 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+                  className={`flex flex-col items-center rounded-xl bg-white border border-[#E6E1DA] px-3 py-1 shadow-[0_4px_14px_rgba(0,0,0,0.08)] transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ${
                     hoveredTooltip === 'high' ? 'scale-105 -translate-y-0.5' : ''
                   }`}
                 >
-                  <span className="text-[11.5px] font-bold text-[#1F1F1F]">450+ Total</span>
-                  <span className="text-[9.5px] font-medium text-[#19A974]">All Models</span>
+                  <span className="text-[11px] font-bold text-[#1F1F1F] whitespace-nowrap">Automated Vault Sync</span>
+                  <span className="text-[9.5px] font-medium text-[#19A974]">All AI Models</span>
                 </div>
               </div>
             </div>

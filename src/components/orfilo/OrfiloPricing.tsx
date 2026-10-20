@@ -2,24 +2,26 @@ import React from 'react';
 import { Check, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 import { ORFILO_PRICING_TIERS, ORFILO_GUARANTEE_POINTS } from '../../data/orfilo/pricing';
 
-export const OrfiloPricing: React.FC<{ onSelectTier: (tierId: string) => void }> = ({
-  onSelectTier,
-}) => {
+interface OrfiloPricingProps {
+  onSelectTier: (tierId: string) => void;
+}
+
+export const OrfiloPricing: React.FC<OrfiloPricingProps> = ({ onSelectTier }) => {
   return (
     <div className="flex flex-col gap-12">
       {/* Header */}
       <div className="flex flex-col items-center text-center gap-3 max-w-2xl mx-auto">
         <div className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#19A974]">
           <Sparkles className="size-3.5 fill-[#19A974]" />
-          <span>Simple, Transparent Pricing</span>
+          <span>Honest Early Adopter Pricing</span>
         </div>
         <h2 className="text-3xl sm:text-4xl font-bold text-[#141414] tracking-[-0.03em] leading-tight">
           Pay once, organize forever. <br />
-          No monthly subscription fatigue.
+          No recurring subscription trap.
         </h2>
         <p className="text-[14px] text-[#636363] leading-relaxed">
-          Choose the tier that fits your workflow. Start free, or grab the Pro Lifetime
-          pass with unlimited Gemini 2.5 Flash semantic classification.
+          We are just launching into public beta. Help us shape the future of AI deliverable 
+          organization and lock in lifetime access before recurring monthly pricing begins.
         </p>
       </div>
 
@@ -37,7 +39,7 @@ export const OrfiloPricing: React.FC<{ onSelectTier: (tierId: string) => void }>
             {/* Popular Badge */}
             {tier.badge && (
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                <span className="rounded-full bg-[#19A974] px-3.5 py-1 text-[11px] font-bold text-white tracking-wide uppercase shadow-xs">
+                <span className="rounded-full bg-[#19A974] px-3.5 py-1 text-[11px] font-bold text-white tracking-wide uppercase shadow-xs whitespace-nowrap">
                   {tier.badge}
                 </span>
               </div>

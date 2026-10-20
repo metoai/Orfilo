@@ -24,7 +24,7 @@ export const OrfiloIcon: React.FC<{ size?: number; className?: string; theme?: '
         height={size}
         alt="Orfilo"
         onError={() => setImgError(true)}
-        className={`shrink-0 object-contain select-none ${className}`}
+        className={`shrink-0 object-contain select-none mix-blend-multiply ${className}`}
         style={{ width: `${size}px`, height: `${size}px` }}
         loading="eager"
       />
