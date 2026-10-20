@@ -11,7 +11,6 @@ import {
 import { OrfiloBrand, OrfiloIcon } from './OrfiloBrand.tsx';
 import { OrfiloHeroMatrix } from './orfilo/OrfiloHeroMatrix.tsx';
 import { OrfiloBentoGrid } from './orfilo/OrfiloBentoGrid.tsx';
-import { OrfiloExplorer } from './orfilo/OrfiloExplorer.tsx';
 import { OrfiloPricing } from './orfilo/OrfiloPricing.tsx';
 import { OrfiloFaq } from './orfilo/OrfiloFaq.tsx';
 
@@ -72,12 +71,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
               className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
             >
               Features
-            </a>
-            <a
-              href="#explorer"
-              className="transition-colors duration-150 hover:text-black ease-[cubic-bezier(0.23,1,0.32,1)]"
-            >
-              Vault Explorer
             </a>
             <a
               href="#pricing"
@@ -190,13 +183,14 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                   <ArrowRight className="size-4 stroke-[2.2]" />
                 </button>
 
-                <a
-                  href="#explorer"
-                  className="inline-flex items-center gap-2 rounded-full bg-white border border-[#DFD9D1] px-5 py-3.5 text-[13.5px] font-medium text-[#2E2E2E] shadow-xs transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#FAF8F5] active:scale-[0.97]"
+                <button
+                  type="button"
+                  onClick={handlePrimaryCta}
+                  className="inline-flex items-center gap-2 rounded-full bg-white border border-[#DFD9D1] px-5 py-3.5 text-[13.5px] font-medium text-[#2E2E2E] shadow-xs transition-all duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] hover:bg-[#FAF8F5] active:scale-[0.97] cursor-pointer"
                 >
                   <Chrome className="size-4 text-[#19A974]" />
                   <span>Chrome Extension • Free</span>
-                </a>
+                </button>
               </div>
             </div>
 
@@ -218,17 +212,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 4. INTERACTIVE VAULT EXPLORER                                   */}
-        {/* =============================================================== */}
-        <section
-          id="explorer"
-          className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 border-t border-black/5"
-        >
-          <OrfiloExplorer onCtaClick={handlePrimaryCta} />
-        </section>
-
-        {/* =============================================================== */}
-        {/* 5. TRANSPARENT PRICING TIERS                                    */}
+        {/* 4. TRANSPARENT PRICING TIERS                                    */}
         {/* =============================================================== */}
         <section
           id="pricing"
@@ -238,7 +222,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
         </section>
 
         {/* =============================================================== */}
-        {/* 6. FAQ ACCORDION                                                */}
+        {/* 5. FAQ ACCORDION                                                */}
         {/* =============================================================== */}
         <section
           id="faq"
@@ -249,7 +233,7 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
       </main>
 
       {/* =============================================================== */}
-      {/* 7. FULL-PAGE MODERN FOOTER                                       */}
+      {/* 6. FULL-PAGE MODERN FOOTER                                       */}
       {/* =============================================================== */}
       <footer className="w-full border-t border-black/5 bg-[#F4F1EB] py-16 px-4 sm:px-6 lg:px-8 mt-12">
         <div className="max-w-7xl mx-auto flex flex-col gap-12">
@@ -277,11 +261,11 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 <a href="#features" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Semantic Naming
                 </a>
-                <a href="#explorer" className="text-xs text-[#666666] hover:text-black transition-colors">
-                  Vault Explorer
-                </a>
                 <a href="#pricing" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Pricing Plans
+                </a>
+                <a href="#faq" className="text-xs text-[#666666] hover:text-black transition-colors">
+                  FAQ
                 </a>
               </div>
 
@@ -297,9 +281,6 @@ export const LandingPageView: React.FC<LandingPageViewProps> = ({
                 </a>
                 <a href="#faq" className="text-xs text-[#666666] hover:text-black transition-colors">
                   Security & RLS
-                </a>
-                <a href="#faq" className="text-xs text-[#666666] hover:text-black transition-colors">
-                  FAQ
                 </a>
               </div>
 
