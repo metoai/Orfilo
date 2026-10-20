@@ -1,0 +1,1 @@
+../../../skills/05-recommended-mvp-essentials/03-observability-sentry-posthog.md

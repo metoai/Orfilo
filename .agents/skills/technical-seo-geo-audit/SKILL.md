@@ -1,0 +1,1 @@
+../../../skills/05-recommended-mvp-essentials/04-technical-seo-geo-audit.md

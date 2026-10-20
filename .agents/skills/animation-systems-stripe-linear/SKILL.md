@@ -1,0 +1,1 @@
+../../../skills/01-design-and-motion/03-animation-systems-stripe-linear.md

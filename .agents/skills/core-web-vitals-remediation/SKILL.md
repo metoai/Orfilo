@@ -1,0 +1,1 @@
+../../../skills/03-speed-and-performance/03-core-web-vitals-remediation.md

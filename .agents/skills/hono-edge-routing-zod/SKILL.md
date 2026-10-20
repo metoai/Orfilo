@@ -1,0 +1,1 @@
+../../../skills/02-backend-and-data/03-hono-edge-routing-zod.md

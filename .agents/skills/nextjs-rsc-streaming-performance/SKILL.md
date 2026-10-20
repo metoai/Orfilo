@@ -1,0 +1,1 @@
+../../../skills/03-speed-and-performance/04-nextjs-rsc-streaming-performance.md

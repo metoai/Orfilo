@@ -1,0 +1,1 @@
+../../../skills/02-backend-and-data/01-supabase-architecture-rls.md

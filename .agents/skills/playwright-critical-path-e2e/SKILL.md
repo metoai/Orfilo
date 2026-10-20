@@ -1,0 +1,1 @@
+../../../skills/05-recommended-mvp-essentials/02-playwright-critical-path-e2e.md

@@ -1,0 +1,1 @@
+../../../skills/04-security-and-hardening/04-upstash-edge-rate-limiting.md
